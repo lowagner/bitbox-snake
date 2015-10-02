@@ -11,19 +11,23 @@ start pauses the game.  pressing buttons while paused, besides start, will modif
 * right/left:  adds more/less food to the screen
 * Y:  changes topography between torus and edges-will-kill-you.
 * X:  toggles single-player only mode
+* B:  changes gun mode.  fire a bullet with B in game if you toggle guns on.
+  * guns 0:  no guns
+  * guns 1-2-3:  bullets shoot slowly-fast-faster
 * R/L:  increases/decreases starting snake size
 * select:  takes a picture of the current screen, saves it to snakeXXX.ppm.
 
 if you want to see the variables you are modifying, you can do so by pressing R+start.
-this must be done when the game is running (i.e. the game is unpaused).  once you do this,
-however, you lose your saved progress, and the game restarts (after unpausing).  (this is because the screen
-itself encodes the game state, so displaying other information will corrupt the game state.)
+
+in game, once you hit R+start, you lose your saved progress, and the game restarts 
+(after unpausing).  (this is because the screen itself encodes the game state, so 
+displaying other information will corrupt the game state.)
 
 ## screenshots
 
 ![option screen](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake986.png)
 
-the option screen...
+the option/intro screen above, and other in-game screenshots below:
 
 ![in game action](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake383.png)
 
