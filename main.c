@@ -30,14 +30,15 @@ struct snake {
     } tail;
     uint16_t color;
     uint8_t heading; // direction that the snake is going.
-    uint8_t tail_wait; // set tail_wait > 0 to grow snake.
+    uint8_t alive;
+    uint32_t tail_wait; // set tail_wait > 0 to grow snake.
 } snake[2];
 
 // game variables
 uint8_t torus; // is the topography a torus?
 uint8_t single_player; // 
 uint8_t speed;
-uint8_t starting_size;
+uint32_t starting_size;
 
 uint8_t timer;
 uint8_t restart_after_timer;
@@ -65,19 +66,24 @@ uint8_t decode(uint16_t color)
     return (uint8_t)((color & 1) | ((color >> 4) & 2) | ((color >> 8) & 4) | ((color >> 12) & 8));
 }
 
-void snake_init(int p, uint8_t y, uint8_t x, uint8_t heading, uint8_t size)
+void snake_init(int p, uint8_t y, uint8_t x, uint8_t heading, uint32_t size)
 {
     snake[p].head.y = snake[p].tail.y = y;
     snake[p].head.x = snake[p].tail.x = x;
     snake[p].color = player_color[p];
     snake[p].heading = heading;
     snake[p].tail_wait = size;
+    snake[p].alive = 1;
 }
 
 void kill_snake(int p)
 {
-    timer = 3;
-    restart_after_timer = 1;
+    snake[p].alive = 0;
+    if (snake[0].alive == 0 && snake[1].alive == 0)
+    {   // reset game, both are dead!
+        timer = 3;
+        restart_after_timer = 1;
+    }
 }
 
 void screen_reset()
@@ -211,13 +217,26 @@ void show_size()
     draw_z(y,x,c1,c2);
     swap_colors(&c1,&c2);x+=4;
     draw_e(y,x,c1,c2);
-   
+ 
+    // put in the number
     swap_colors(&c1,&c2);x+=6;
-    numbers[starting_size/100](y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    numbers[(starting_size/10)%10](y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    numbers[starting_size%10](y,x,c1,c2);
+    if (starting_size < 1000)
+    {
+        numbers[starting_size/100](y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        numbers[(starting_size/10)%10](y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        numbers[starting_size%10](y,x,c1,c2);
+    }
+    else
+    {
+        numbers[starting_size/10000](y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        numbers[(starting_size/1000)%10](y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        draw_k(y,x,c1,c2);
+
+    }
 }
 
 void show_options()
@@ -266,16 +285,8 @@ void show_options()
 void game_restart()
 {
     bg_color = RGB(0,0,0); // probably will break if this is not 0.
-    
-    if (!speed)
-        speed = INIT_SPEED; // smaller values is faster snakes
-    // speed should not be any larger than 9.  that's already super slow!
 
-    if (!starting_size)
-        starting_size = INIT_SIZE;
-
-    if (!food_count)
-        food_count = INIT_FOOD;
+    srand(vga_frame);
 
     uint16_t test = encode(bg_color, 0);
     message("encoding test:  %d -> %d\n", (int)bg_color, (int)test);
@@ -309,8 +320,9 @@ void game_restart()
     
     screen_reset();
     
-    for (int i=2; i<food_count; ++i)
+    for (int i=2; i<FOOD; ++i)
     {
+        // pre-randomize the food positions
         food[i].y = rand()%SCREEN_H;
         food[i].x = rand()%SCREEN_W;
         while (superpixel[food[i].y][food[i].x] != bg_color)
@@ -328,7 +340,13 @@ void game_restart()
 
 void game_init()
 { 
-    torus = 1;
+    torus = 1; 
+    speed = INIT_SPEED; // smaller values is faster snakes
+    // speed should not be any larger than 9.  that's already super slow!
+    starting_size = INIT_SIZE;
+    food_count = INIT_FOOD;
+
+
     game_restart();
 }
 
@@ -539,11 +557,19 @@ void game_frame()
             }
             if (gamepad_press & gamepad_R)
             {
-                if (starting_size <= 250)
+                if (starting_size < 19000)
                 {
-                    starting_size += 5;
+                    uint32_t increment;
+                    if (starting_size < 111)
+                        increment= 5;
+                    else if (starting_size < 1000)
+                        increment = 59;
+                    else
+                        increment = 1000;
+
+                    starting_size += increment;
                     for (int p=0; p<2-single_player; ++p)
-                        snake[p].tail_wait += 5;
+                        snake[p].tail_wait += increment;
                     message("size = %d\n", (int)starting_size);
                     if (restart_after_timer)
                         show_size();
@@ -553,18 +579,26 @@ void game_frame()
             {
                 if (starting_size > 6)
                 {
-                    starting_size -= 5;
+                    uint32_t decrement;
+                    if (starting_size < 116)
+                        decrement= 5;
+                    else if (starting_size < 1001)
+                        decrement = 59;
+                    else
+                        decrement = 1000;
+
+                    starting_size -= decrement;
+                    for (int p=0; p<2-single_player; ++p)
+                        snake[p].tail_wait -= decrement;
+                    message("size = %d\n", (int)starting_size);
                     if (restart_after_timer)
                         show_size();
-                    message("size = %d\n", (int)starting_size);
                 }
             }
             if (gamepad_press & gamepad_right)
             {
                 if (food_count < FOOD)
                 {
-                    food[food_count].y = rand()%SCREEN_H;
-                    food[food_count].x = rand()%SCREEN_W;
                     while (superpixel[food[food_count].y][food[food_count].x] != bg_color)
                     {
                         food[food_count].y = rand()%SCREEN_H;
@@ -573,7 +607,7 @@ void game_frame()
                     superpixel[food[food_count].y][food[food_count].x] = food_color;
                     ++food_count;
                     if (restart_after_timer)
-                        show_size();
+                        show_food();
                 }
             }
             else if (gamepad_press & gamepad_left)
@@ -583,15 +617,17 @@ void game_frame()
                     --food_count;
                     superpixel[food[food_count].y][food[food_count].x] = bg_color;
                     if (restart_after_timer)
-                        show_size();
+                        show_food();
                 }
             }
         }
         return;
     }
 
+    // do snake dynamics
     if (vga_frame % speed == 0)
     for (int p=0; p<2-single_player; ++p)
+    if (snake[p].alive)
     {
         if (GAMEPAD_PRESSED(p, up) && (snake[p].heading == LEFT || snake[p].heading == RIGHT))
             snake[p].heading = UP;

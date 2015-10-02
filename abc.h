@@ -16,6 +16,7 @@ void draw_space(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_t(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_i(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_f(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_k(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_l(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_o(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_w(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
