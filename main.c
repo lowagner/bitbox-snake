@@ -137,11 +137,15 @@ void show_torus()
     }
     else
     {
-        for (int i=0; i<5; ++i)
-        {
-            draw_space(y,x,c1,c2);
-            x+=4;
-        }
+        draw_w(y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        draw_a(y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        draw_l(y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        draw_l(y,x,c1,c2);
+        swap_colors(&c1,&c2);x+=4;
+        draw_s(y,x,c1,c2);
     }
 
 }
