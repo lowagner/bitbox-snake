@@ -29,6 +29,7 @@ void draw_u(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_s(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_p(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_d(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_b(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 
 void draw_z(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 
@@ -37,7 +38,6 @@ void draw_3(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_4(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_6(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_7(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
-void draw_8(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_9(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 
 

@@ -1,6 +1,6 @@
 #include "abc.h"
 
-letter_fn *numbers[10] = { &draw_o, &draw_1, &draw_z, &draw_3, &draw_4, &draw_s, &draw_6, &draw_7, &draw_8, &draw_9 };
+letter_fn *numbers[10] = { &draw_o, &draw_1, &draw_z, &draw_3, &draw_4, &draw_s, &draw_6, &draw_7, &draw_b, &draw_9 };
 
 void draw_space(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
 {
@@ -346,7 +346,7 @@ void draw_7(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
     superpixel[y][x+2] = c1;
 }
 
-void draw_8(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+void draw_b(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
 {
     superpixel[y][x] = c1;
     superpixel[y][x+1] = c2;

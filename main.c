@@ -2,6 +2,7 @@
 #include <math.h>
 #include "nonsimple.h"
 #include "fatfs/ff.h"
+#include "string.h" // memset
 #include "abc.h"
 
 // variables for heading / direction:
@@ -14,12 +15,16 @@
 // other random variables:
 
 #define FOOD 16
+#define BULLETS 3
+#define BULLET_LIFE 80
 #define INIT_FOOD 2
 #define INIT_SIZE 15
 #define INIT_SPEED 5 // higher is slower.  1 is fastest
 #define CODE_MASK 31710 // color equivalence should be & this mask.
 
 uint16_t player_color[2] = {RGB(255,0,0), RGB(0,50,255)};
+uint16_t dead_player_color[2] = {RGB(200,0,0), RGB(0,50,200)};
+const uint16_t bullet_color = RGB(200,200,200);
 
 struct snake {
     struct {
@@ -34,10 +39,17 @@ struct snake {
     uint32_t tail_wait; // set tail_wait > 0 to grow snake.
 } snake[2];
 
+struct bullet {
+    uint8_t y, x;
+    uint8_t heading;
+    uint8_t alive;
+} bullet[2][BULLETS];
+
 // game variables
 uint8_t torus; // is the topography a torus?
 uint8_t single_player; // 
 uint8_t speed;
+uint8_t bullet_length;
 uint32_t starting_size;
 
 uint8_t timer;
@@ -52,6 +64,8 @@ struct location {
 FATFS fat_fs;
 FIL fat_file;
 FRESULT fat_result;
+
+void game_restart();
 
 uint16_t encode(uint16_t color, uint8_t heading)
 {   
@@ -86,6 +100,69 @@ void kill_snake(int p)
     }
 }
 
+void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
+{
+    
+    // zip up snake p until the tail reaches point y,x.
+    // leave a trail of "color" in the wake.
+    int i = 0; // counter, once it exceeds the largest possible snake length, it returns...
+    while (!(snake[p].tail.y == y && snake[p].tail.x == x))
+    {
+        // decode the direction the tail is heading from the color it's on:
+        uint8_t tail_heading = decode(superpixel[snake[p].tail.y][snake[p].tail.x]);
+        // blank the tail
+        superpixel[snake[p].tail.y][snake[p].tail.x] = color;
+        switch (tail_heading)
+        {
+        case UP:
+            if (snake[p].tail.y)
+                --snake[p].tail.y;
+            else
+                snake[p].tail.y = SCREEN_H-1; 
+            break;
+        case DOWN:
+            if (snake[p].tail.y < SCREEN_H-1)
+                ++snake[p].tail.y;
+            else
+                snake[p].tail.y = 0; 
+            break;
+        case LEFT: 
+            if (snake[p].tail.x)
+                --snake[p].tail.x;
+            else
+                snake[p].tail.x = SCREEN_W-1; 
+            break;
+        case RIGHT: 
+            if (snake[p].tail.x < SCREEN_W-1)
+                ++snake[p].tail.x;
+            else
+                snake[p].tail.x = 0; 
+            break;
+        }
+
+        if (++i > 19200)
+            // something got funny...
+            return game_restart();
+    }
+}
+
+void make_walls()
+{
+    // setup the walls on the torus
+    memset(superpixel[0], 255, 2*SCREEN_W);
+    memset(superpixel[SCREEN_H-1], 255, 2*SCREEN_W);
+    for (int j=0; j<SCREEN_H; ++j)
+        superpixel[j][0] = superpixel[j][SCREEN_W-1] = 65535;
+}
+
+void remove_walls()
+{
+    memset(superpixel[0], 0, 2*SCREEN_W);
+    memset(superpixel[SCREEN_H-1], 0, 2*SCREEN_W);
+    for (int j=0; j<SCREEN_H; ++j)
+        superpixel[j][0] = superpixel[j][SCREEN_W-1] = 0;
+}
+
 void screen_reset()
 {
     clear();
@@ -93,6 +170,10 @@ void screen_reset()
         superpixel[food[i].y][food[i].x] = food_color;
     for (int p=0; p<2-single_player; ++p)
         superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
+    if (!torus)
+    {
+        make_walls();
+    }
 }
 
 void show_duel()
@@ -239,6 +320,28 @@ void show_size()
     }
 }
 
+void show_bullets()
+{
+    uint16_t c1 = RGB(255,255,0);
+    uint16_t c2 = RGB(0,255,255);
+    uint8_t y=40, x0=SCREEN_W/2 - 9;
+    uint8_t x = x0;
+    x=x0-1;
+    // bullets
+    draw_g(y,x,c1,c2);
+    swap_colors(&c1,&c2);x+=4;
+    draw_u(y,x,c1,c2);
+    swap_colors(&c1,&c2);x+=4;
+    draw_n(y,x,c1,c2);
+    swap_colors(&c1,&c2);x+=4;
+    draw_s(y,x,c1,c2);
+ 
+    // put in the number
+    swap_colors(&c1,&c2);x+=6;
+    numbers[bullet_length%10](y,x,c1,c2);
+
+}
+
 void show_options()
 {
     show_duel();
@@ -246,6 +349,8 @@ void show_options()
     show_speed();
     show_food();
     show_size();
+    show_bullets();
+    
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
     
@@ -284,7 +389,7 @@ void show_options()
 
 void game_restart()
 {
-    bg_color = RGB(0,0,0); // probably will break if this is not 0.
+    bg_color = 0; // this MUST BE ZERO.  DO NOT MODIFY.
 
     srand(vga_frame);
 
@@ -335,6 +440,9 @@ void game_restart()
     timer = 5;
     restart_after_timer = 0;
 
+    if (single_player)
+        snake[1].alive = 0;
+
     show_options();
 }
 
@@ -348,26 +456,37 @@ void game_init()
 
 
     game_restart();
-}
 
+    timer = 255; // go to pause
+    restart_after_timer = 1; // go to menu on pause
+}
 
 void game_frame()
 {
-    static uint16_t old_gamepad;
+    static uint16_t old_gamepad[2];
 
     kbd_emulate_gamepad();
     
-    uint16_t gamepad_press = gamepad_buttons[0] & ~old_gamepad;
-    old_gamepad = gamepad_buttons[0];
+    uint16_t gamepad_press[2] = { gamepad_buttons[0] & ~old_gamepad[0],
+    gamepad_buttons[1] & ~old_gamepad[1] };
+
+    old_gamepad[0] = gamepad_buttons[0];
+    old_gamepad[1] = gamepad_buttons[1];
 
     // meta game controls here:
 
-    if (gamepad_press & gamepad_start)
+    if (gamepad_press[0] & gamepad_start)
     {
         if (timer == 255) // if we were paused...
         {
             if (restart_after_timer)
-                return game_restart();
+            {
+                message("restarting game\n");
+                game_restart();
+                timer = 4;
+                return;
+            }
+            message("set timer to zero\n");
             timer = 0;
         }
         else if (timer == 0) // we weren't paused
@@ -384,7 +503,7 @@ void game_frame()
     // pause game if it's on a timer...
     if (timer)
     {
-        if (gamepad_press & gamepad_select)
+        if (gamepad_press[0]  & gamepad_select)
         {   // save screen shot
             srand(vga_frame); // seed random # generator
             message("taking picture\n");
@@ -428,7 +547,7 @@ void game_frame()
         }
         if (timer < 255) // not paused, probably the game preparing for something...
         {
-            if (GAMEPAD_PRESSED(0, start))
+            if (gamepad_press[0]  & gamepad_start)
             {
                 timer = 0; // shortcut
                 if (restart_after_timer)
@@ -471,7 +590,7 @@ void game_frame()
         }
         else // we're paused!  show the options and allow them to change
         {
-            if (gamepad_press & gamepad_down)
+            if (gamepad_press[0] & gamepad_down)
             {
                 if (speed < 9)
                     ++speed;
@@ -479,7 +598,7 @@ void game_frame()
                 if (restart_after_timer)
                     show_speed();
             }
-            else if (gamepad_press & gamepad_up)
+            else if (gamepad_press[0] & gamepad_up)
             {
                 if (speed > 1)
                     --speed;
@@ -487,14 +606,30 @@ void game_frame()
                 if (restart_after_timer)
                     show_speed();
             }
-            if (gamepad_press & gamepad_Y)
+            if (gamepad_press[0] & gamepad_Y)
             {
                 torus = 1 - torus;
                 message("torus = %d\n", (int)torus);
-                if (restart_after_timer)
+                if (!restart_after_timer)
+                {
+                    restart_after_timer = 1; // you must reset the game
+                    show_options();
+                }
+                else
                     show_torus();
+
+                if (torus)
+                    remove_walls();
+                else
+                    make_walls();
             }
-            if (gamepad_press & gamepad_X)
+            if (gamepad_press[0] & gamepad_B)
+            {   // add/remove bullets
+                bullet_length = (bullet_length + 1)%4;
+                if (restart_after_timer)
+                    show_bullets();
+            }
+            if (gamepad_press[0] & gamepad_X)
             {
                 single_player = 1 - single_player;
                 message("single_player = %d\n", (int)single_player);
@@ -502,42 +637,9 @@ void game_frame()
                 { // create or destroy second player now
                     if (single_player)
                     {   // zip up tail til it reaches the head
-                        while (!(snake[1].tail.y == snake[1].head.y && snake[1].tail.x == snake[1].head.x))
-                        {
-                            // decode the direction the tail is heading from the color it's on:
-                            uint8_t tail_heading = decode(superpixel[snake[1].tail.y][snake[1].tail.x]);
-                            // blank the tail
-                            superpixel[snake[1].tail.y][snake[1].tail.x] = bg_color;
-                            switch (tail_heading)
-                            {
-                            case UP:
-                                if (snake[1].tail.y)
-                                    --snake[1].tail.y;
-                                else
-                                    snake[1].tail.y = SCREEN_H-1; // should only happen on torus
-                                break;
-                            case DOWN:
-                                if (snake[1].tail.y < SCREEN_H-1)
-                                    ++snake[1].tail.y;
-                                else
-                                    snake[1].tail.y = 0; // should only happen on torus
-                                break;
-                            case LEFT: 
-                                if (snake[1].tail.x)
-                                    --snake[1].tail.x;
-                                else
-                                    snake[1].tail.x = SCREEN_W-1; // should only happen on torus
-                                break;
-                            case RIGHT: 
-                                if (snake[1].tail.x < SCREEN_W-1)
-                                    ++snake[1].tail.x;
-                                else
-                                    snake[1].tail.x = 0; // should only happen on torus
-                                break;
-                            }
-
-                        }
                         // now can remove the head (and tail):
+                        zip_snake(1, snake[1].head.y, snake[1].head.x,  bg_color);
+                        // kill off head, too:
                         superpixel[snake[1].head.y][snake[1].head.x] = bg_color;
                     }
                     else
@@ -555,7 +657,7 @@ void game_frame()
                 if (restart_after_timer)
                     show_duel();
             }
-            if (gamepad_press & gamepad_R)
+            if (gamepad_press[0] & gamepad_R)
             {
                 if (starting_size < 19000)
                 {
@@ -575,7 +677,7 @@ void game_frame()
                         show_size();
                 }
             }
-            else if (gamepad_press & gamepad_L)
+            else if (gamepad_press[0] & gamepad_L)
             {
                 if (starting_size > 6)
                 {
@@ -595,7 +697,7 @@ void game_frame()
                         show_size();
                 }
             }
-            if (gamepad_press & gamepad_right)
+            if (gamepad_press[0] & gamepad_right)
             {
                 if (food_count < FOOD)
                 {
@@ -610,7 +712,7 @@ void game_frame()
                         show_food();
                 }
             }
-            else if (gamepad_press & gamepad_left)
+            else if (gamepad_press[0] & gamepad_left)
             {
                 if (food_count)
                 { 
@@ -623,136 +725,276 @@ void game_frame()
         }
         return;
     }
-
-    // do snake dynamics
+    
+    // do bullet dynamics
     if (vga_frame % speed == 0)
+    for (int step=0; step < bullet_length; ++step)
+    for (int b=0; b<BULLETS; ++b)
+    for (int p=0; p<2; ++p)
+    if (bullet[p][b].alive)
+    {
+        // remove bullet from its current spot:
+        superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+    
+        // move it forward:
+        switch (bullet[p][b].heading)
+        {
+        case UP:
+            if (bullet[p][b].y)
+                --bullet[p][b].y;
+            else
+                bullet[p][b].y = SCREEN_H-1; // should only happen on torus
+            break;
+        case DOWN:
+            if (bullet[p][b].y < SCREEN_H-1)
+                ++bullet[p][b].y;
+            else
+                bullet[p][b].y = 0; // should only happen on torus
+            break;
+        case LEFT: 
+            if (bullet[p][b].x)
+                --bullet[p][b].x;
+            else
+                bullet[p][b].x = SCREEN_W-1; // should only happen on torus
+            break;
+        case RIGHT: 
+            if (bullet[p][b].x < SCREEN_W-1)
+                ++bullet[p][b].x;
+            else
+                bullet[p][b].x = 0; // should only happen on torus
+            break;
+        }
+
+        // check collisions
+        if (superpixel[bullet[p][b].y][bullet[p][b].x] != bg_color)
+        {
+            if (superpixel[bullet[p][b].y][bullet[p][b].x] == 65535)
+            {   // wall color, ignore!
+            }
+            else if (superpixel[bullet[p][b].y][bullet[p][b].x] == bullet_color)
+            {
+                // find the other bullet and kill it
+                for (int pb=0; pb<2*BULLETS; ++pb)
+                if (bullet[p][b].y == bullet[pb/BULLETS][pb%BULLETS].y && 
+                    bullet[p][b].x == bullet[pb/BULLETS][pb%BULLETS].x)
+                {
+                    bullet[pb/BULLETS][pb%BULLETS].alive = 0; 
+                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+                    break;
+                }
+            }
+            else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
+                     (snake[1-p].color & CODE_MASK))
+            {
+                // kill off enemy snake (1-p) if it's his head, otherwise zip him up
+                if (bullet[p][b].y == snake[1-p].head.y && bullet[p][b].x == snake[1-p].head.x)
+                {
+                    kill_snake(1-p); 
+                    message("killed enemy by a bullet\n");
+                }
+                else // was not the head, zip up tail to where bullet hit
+                {
+                    zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]);
+                    message("hurt enemy by a bullet\n");
+                }
+            }
+            else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
+                     (snake[p].color & CODE_MASK))
+            {
+                // you just hurt or killed yourself!
+                if (bullet[p][b].y == snake[p].head.y && bullet[p][b].x == snake[p].head.x)
+                {
+                    kill_snake(p); 
+                    message("killed by your own bullet\n");
+                }
+                else // was not the head, zip up tail to where bullet hit
+                {
+                    zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]);
+                    message("hurt by your own bullet\n");
+                }
+            }
+            bullet[p][b].alive = 1; // will get killed here next...
+        }
+       
+        --bullet[p][b].alive;
+        // check whether the bullet should continue:
+        if (bullet[p][b].alive)
+            superpixel[bullet[p][b].y][bullet[p][b].x] = bullet_color;
+    }
+    
+    // do snake dynamics
     for (int p=0; p<2-single_player; ++p)
     if (snake[p].alive)
     {
-        if (GAMEPAD_PRESSED(p, up) && (snake[p].heading == LEFT || snake[p].heading == RIGHT))
-            snake[p].heading = UP;
-        else if (GAMEPAD_PRESSED(p, down) && (snake[p].heading == LEFT || snake[p].heading == RIGHT))
-            snake[p].heading = DOWN;
-        else if (GAMEPAD_PRESSED(p, left) && (snake[p].heading == UP || snake[p].heading == DOWN))
-            snake[p].heading = LEFT;
-        else if (GAMEPAD_PRESSED(p, right) && (snake[p].heading == UP || snake[p].heading == DOWN))
-            snake[p].heading = RIGHT;
-    
-        // encode direction you're going onto the current pixel, so tail can follow:
-        superpixel[snake[p].head.y][snake[p].head.x] = encode(snake[p].color, snake[p].heading);
-
-        switch (snake[p].heading)
+        if (vga_frame % speed == 0)
         {
-        case UP:
-            if (snake[p].head.y)
-                --snake[p].head.y;
-            else
-            {
-                if (torus)
-                    snake[p].head.y = SCREEN_H-1; // should only happen on torus
-                else
-                    return kill_snake(p);
-            }
-            break;
-        case DOWN:
-            if (snake[p].head.y < SCREEN_H-1)
-                ++snake[p].head.y;
-            else
-            {
-                if (torus)
-                    snake[p].head.y = 0; // should only happen on torus
-                else
-                    return kill_snake(p);
-            }
-            break;
-        case LEFT: 
-            if (snake[p].head.x)
-                --snake[p].head.x;
-            else
-            {
-                if (torus)
-                    snake[p].head.x = SCREEN_W-1; // should only happen on torus
-                else
-                    return kill_snake(p);
-            }
-            break;
-        case RIGHT: 
-            if (snake[p].head.x < SCREEN_W-1)
-                ++snake[p].head.x;
-            else
-            {
-                if (torus)
-                    snake[p].head.x = 0; // should only happen on torus
-                else
-                    return kill_snake(p);
-            }
-            break;
-        }
+            if (GAMEPAD_PRESSED(p, up) && (snake[p].heading == LEFT || snake[p].heading == RIGHT))
+                snake[p].heading = UP;
+            else if (GAMEPAD_PRESSED(p, down) && (snake[p].heading == LEFT || snake[p].heading == RIGHT))
+                snake[p].heading = DOWN;
+            else if (GAMEPAD_PRESSED(p, left) && (snake[p].heading == UP || snake[p].heading == DOWN))
+                snake[p].heading = LEFT;
+            else if (GAMEPAD_PRESSED(p, right) && (snake[p].heading == UP || snake[p].heading == DOWN))
+                snake[p].heading = RIGHT;
         
-        // check collisions on new spot first:
-        if (superpixel[snake[p].head.y][snake[p].head.x] != bg_color)
-        {
-            if (superpixel[snake[p].head.y][snake[p].head.x] == food_color)
-            {
-                for (int i=0; i<food_count; ++i)
-                {
-                    if (food[i].y == snake[p].head.y && food[i].x == snake[p].head.x)
-                    {
-                        while (superpixel[food[i].y][food[i].x] != bg_color)
-                        {
-                            food[i].y = rand()%SCREEN_H;
-                            food[i].x = rand()%SCREEN_W;
-                        }
-                        superpixel[food[i].y][food[i].x] = food_color;
-                        break;
-                    }
-                }
-                ++snake[p].tail_wait;
-            }
-            else
-                return kill_snake(p);
-        }
-        
-        // then mark the next spot as where you're going!
-        // (encode heading for that next time)
-        superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
+            // encode direction you're going onto the current pixel, so tail can follow:
+            superpixel[snake[p].head.y][snake[p].head.x] = encode(snake[p].color, snake[p].heading);
 
-        // finished with the snake's head, now go onto the snake's tail!
-        if (snake[p].tail_wait)
-            --snake[p].tail_wait;
-        else
-        {
-            // decode the direction the tail is heading from the color it's on:
-            uint8_t tail_heading = decode(superpixel[snake[p].tail.y][snake[p].tail.x]);
-            // blank the tail
-            superpixel[snake[p].tail.y][snake[p].tail.x] = bg_color;
-            switch (tail_heading)
+            switch (snake[p].heading)
             {
             case UP:
-                if (snake[p].tail.y)
-                    --snake[p].tail.y;
+                if (snake[p].head.y)
+                    --snake[p].head.y;
                 else
-                    snake[p].tail.y = SCREEN_H-1; // should only happen on torus
+                    snake[p].head.y = SCREEN_H-1; // should only happen on torus
                 break;
             case DOWN:
-                if (snake[p].tail.y < SCREEN_H-1)
-                    ++snake[p].tail.y;
+                if (snake[p].head.y < SCREEN_H-1)
+                    ++snake[p].head.y;
                 else
-                    snake[p].tail.y = 0; // should only happen on torus
+                    snake[p].head.y = 0; // should only happen on torus
                 break;
             case LEFT: 
-                if (snake[p].tail.x)
-                    --snake[p].tail.x;
+                if (snake[p].head.x)
+                    --snake[p].head.x;
                 else
-                    snake[p].tail.x = SCREEN_W-1; // should only happen on torus
+                    snake[p].head.x = SCREEN_W-1; // should only happen on torus
                 break;
             case RIGHT: 
-                if (snake[p].tail.x < SCREEN_W-1)
-                    ++snake[p].tail.x;
+                if (snake[p].head.x < SCREEN_W-1)
+                    ++snake[p].head.x;
                 else
-                    snake[p].tail.x = 0; // should only happen on torus
+                    snake[p].head.x = 0; // should only happen on torus
                 break;
+            }
+            
+            // check collisions on new spot first:
+            if (superpixel[snake[p].head.y][snake[p].head.x] != bg_color)
+            {
+                if (superpixel[snake[p].head.y][snake[p].head.x] == food_color)
+                {
+                    for (int i=0; i<food_count; ++i)
+                    {
+                        if (food[i].y == snake[p].head.y && food[i].x == snake[p].head.x)
+                        {
+                            if (torus)
+                            {
+                                while (superpixel[food[i].y][food[i].x] != bg_color)
+                                {
+                                    food[i].y = rand()%SCREEN_H;
+                                    food[i].x = rand()%SCREEN_W;
+                                }
+                            }
+                            else
+                            {
+                                while (superpixel[food[i].y][food[i].x] != bg_color)
+                                {
+                                    food[i].y = 1 + (rand()%(SCREEN_H-2));
+                                    food[i].x = 1 + (rand()%(SCREEN_W-2));
+                                }
+                            }
+                            superpixel[food[i].y][food[i].x] = food_color;
+                            break;
+                        }
+                    }
+                    ++snake[p].tail_wait;
+                }
+                else
+                {
+                    kill_snake(p);
+                    continue;
+                }
+            }
+            
+            // then mark the next spot as where you're going!
+            // (encode heading for that next time)
+            superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
+
+            // finished with the snake's head, now go onto the snake's tail!
+            if (snake[p].tail_wait)
+                --snake[p].tail_wait;
+            else
+            {
+                // decode the direction the tail is heading from the color it's on:
+                uint8_t tail_heading = decode(superpixel[snake[p].tail.y][snake[p].tail.x]);
+                // blank the tail
+                superpixel[snake[p].tail.y][snake[p].tail.x] = bg_color;
+                switch (tail_heading)
+                {
+                case UP:
+                    if (snake[p].tail.y)
+                        --snake[p].tail.y;
+                    else
+                        snake[p].tail.y = SCREEN_H-1; // should only happen on torus
+                    break;
+                case DOWN:
+                    if (snake[p].tail.y < SCREEN_H-1)
+                        ++snake[p].tail.y;
+                    else
+                        snake[p].tail.y = 0; // should only happen on torus
+                    break;
+                case LEFT: 
+                    if (snake[p].tail.x)
+                        --snake[p].tail.x;
+                    else
+                        snake[p].tail.x = SCREEN_W-1; // should only happen on torus
+                    break;
+                case RIGHT: 
+                    if (snake[p].tail.x < SCREEN_W-1)
+                        ++snake[p].tail.x;
+                    else
+                        snake[p].tail.x = 0; // should only happen on torus
+                    break;
+                }
+            }
+        } 
+
+        // fire bullets if you want and are able
+        if (gamepad_press[p] & gamepad_B)
+        {   
+            message("FIRE!\n");
+            // scan bullets for anyone not alive
+            int b=0;
+            for (; b<BULLETS; ++b)
+                if (!bullet[p][b].alive)
+                    break;
+            if (b < BULLETS)
+            {   // found a dead bullet to use
+                bullet[p][b].alive = BULLET_LIFE;
+                bullet[p][b].heading = snake[p].heading;
+                bullet[p][b].y = snake[p].head.y;
+                bullet[p][b].x = snake[p].head.x;
+                // push the bullet in front of player
+                switch (bullet[p][b].heading)
+                {
+                case UP:
+                    if (bullet[p][b].y)
+                        --bullet[p][b].y;
+                    else
+                        bullet[p][b].y = SCREEN_H-1; // should only happen on torus
+                    break;
+                case DOWN:
+                    if (bullet[p][b].y < SCREEN_H-1)
+                        ++bullet[p][b].y;
+                    else
+                        bullet[p][b].y = 0; // should only happen on torus
+                    break;
+                case LEFT: 
+                    if (bullet[p][b].x)
+                        --bullet[p][b].x;
+                    else
+                        bullet[p][b].x = SCREEN_W-1; // should only happen on torus
+                    break;
+                case RIGHT: 
+                    if (bullet[p][b].x < SCREEN_W-1)
+                        ++bullet[p][b].x;
+                    else
+                        bullet[p][b].x = 0; // should only happen on torus
+                    break;
+                }
             }
         }
     }
+    
+
 }
