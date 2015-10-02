@@ -19,7 +19,7 @@
 #define BULLET_LIFE 86
 #define INIT_FOOD 3
 #define INIT_SIZE 20
-#define INIT_SPEED 2 // higher is slower.  1 is fastest
+#define INIT_SPEED 3 // higher is slower.  1 is fastest
 #define CODE_MASK 31710 // color equivalence should be & this mask.
 
 uint16_t player_color[2] = {RGB(255,0,0), RGB(0,50,255)};
@@ -440,6 +440,9 @@ void game_restart()
         snake_init(0, 60,90, UP, starting_size);
         snake_init(1, 60,70, DOWN, starting_size);
     }
+    for (int p=0; p<2; ++p)
+    for (int b=0; b<BULLETS; ++b)
+            bullet[p][b].alive = 0;
 
     food_color = RGB(0,255,0);
     if (food_count > 1)
@@ -672,7 +675,12 @@ void game_frame()
             if (gamepad_press[0] & gamepad_B)
             {   // add/remove bullets
                 bullet_length = (bullet_length + 1)%4;
-                if (restart_after_timer)
+                if (!restart_after_timer)
+                {
+                    restart_after_timer = 1; // you must reset the game
+                    show_options();
+                }
+                else
                     show_bullets();
             }
             if (gamepad_press[0] & gamepad_X)
