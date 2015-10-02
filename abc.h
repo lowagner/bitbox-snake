@@ -12,8 +12,16 @@ inline void swap_colors(uint16_t *c1, uint16_t *c2)
 
 typedef void (letter_fn)(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 
+void draw_up(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_down(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_left(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_right(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_slash(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+
 void draw_space(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_t(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_x(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
+void draw_y(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_i(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_f(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);
 void draw_k(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2);

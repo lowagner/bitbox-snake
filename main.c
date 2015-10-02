@@ -14,12 +14,12 @@
 
 // other random variables:
 
-#define FOOD 16
-#define BULLETS 3
-#define BULLET_LIFE 80
-#define INIT_FOOD 2
-#define INIT_SIZE 15
-#define INIT_SPEED 5 // higher is slower.  1 is fastest
+#define FOOD 16 // max food
+#define BULLETS 3 // max bullets
+#define BULLET_LIFE 86
+#define INIT_FOOD 3
+#define INIT_SIZE 20
+#define INIT_SPEED 2 // higher is slower.  1 is fastest
 #define CODE_MASK 31710 // color equivalence should be & this mask.
 
 uint16_t player_color[2] = {RGB(255,0,0), RGB(0,50,255)};
@@ -36,7 +36,7 @@ struct snake {
     uint16_t color;
     uint8_t heading; // direction that the snake is going.
     uint8_t alive;
-    uint32_t tail_wait; // set tail_wait > 0 to grow snake.
+    int32_t tail_wait; // set tail_wait > 0 to grow snake.
 } snake[2];
 
 struct bullet {
@@ -80,12 +80,14 @@ uint8_t decode(uint16_t color)
     return (uint8_t)((color & 1) | ((color >> 4) & 2) | ((color >> 8) & 4) | ((color >> 12) & 8));
 }
 
-void snake_init(int p, uint8_t y, uint8_t x, uint8_t heading, uint32_t size)
+void snake_init(int p, uint8_t y, uint8_t x, uint8_t heading, int32_t size)
 {
     snake[p].head.y = snake[p].tail.y = y;
     snake[p].head.x = snake[p].tail.x = x;
     snake[p].color = player_color[p];
     snake[p].heading = heading;
+    if (size <= 0)
+        size = 1;
     snake[p].tail_wait = size;
     snake[p].alive = 1;
 }
@@ -102,7 +104,6 @@ void kill_snake(int p)
 
 void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
 {
-    
     // zip up snake p until the tail reaches point y,x.
     // leave a trail of "color" in the wake.
     int i = 0; // counter, once it exceeds the largest possible snake length, it returns...
@@ -144,6 +145,8 @@ void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
             // something got funny...
             return game_restart();
     }
+    // remove any wait from the tail
+    snake[p].tail_wait = 0;
 }
 
 void make_walls()
@@ -387,11 +390,40 @@ void show_options()
     draw_s(y,x,c1,c2);
 }
 
+void show_controls()
+{
+    uint16_t c2 = RGB(255,255,0);
+    uint16_t c1 = RGB(0,255,255);
+    uint8_t y=20, x=SCREEN_W/2 - 26;
+
+    draw_x(y,x,c1,c2);
+    y += 4;
+    draw_y(y,x,c1,c2);
+    y += 4;
+    x -= 4;
+    draw_up(y,x,c1,c2); x += 4;
+    draw_slash(y,x,c1,c2); x += 4;
+    draw_down(y,x,c1,c2);
+    x -= 8;
+    y += 4;
+    draw_left(y,x,c1,c2); x += 4;
+    draw_slash(y,x,c1,c2); x += 4;
+    draw_right(y,x,c1,c2);
+    x -= 8;
+    y += 4;
+    draw_l(y,x,c1,c2); x += 4;
+    draw_slash(y,x,c1,c2); x += 4;
+    draw_r(y,x,c1,c2);
+    x -= 4;
+    y += 4;
+    draw_b(y,x,c1,c2); x += 4;
+}
+
 void game_restart()
 {
     bg_color = 0; // this MUST BE ZERO.  DO NOT MODIFY.
 
-    srand(vga_frame);
+    srand(vga_frame); // reseed the random # generator
 
     uint16_t test = encode(bg_color, 0);
     message("encoding test:  %d -> %d\n", (int)bg_color, (int)test);
@@ -410,20 +442,20 @@ void game_restart()
     }
 
     food_color = RGB(0,255,0);
-    if (food_count == 2)
+    if (food_count > 1)
     {
         food[0].y = 60;
         food[0].x = 100;
         food[1].y = 60;
         food[1].x = 60;
     }
-    else if (food_count == 1)
+    else
     {
         food[0].y = 60;
-        food[0].x = 80;
+        food[0].x = 80; 
+        food[1].y = 30;
+        food[1].x = 80;
     }
-    
-    screen_reset();
     
     for (int i=2; i<FOOD; ++i)
     {
@@ -436,6 +468,7 @@ void game_restart()
             food[i].x = rand()%SCREEN_W;
         }
     }
+    screen_reset();
 
     timer = 5;
     restart_after_timer = 0;
@@ -448,17 +481,18 @@ void game_restart()
 
 void game_init()
 { 
+    srand(30);
     torus = 1; 
     speed = INIT_SPEED; // smaller values is faster snakes
     // speed should not be any larger than 9.  that's already super slow!
-    starting_size = INIT_SIZE;
     food_count = INIT_FOOD;
-
+    starting_size = INIT_SIZE;
 
     game_restart();
 
     timer = 255; // go to pause
     restart_after_timer = 1; // go to menu on pause
+    show_controls();
 }
 
 void game_frame()
@@ -495,6 +529,7 @@ void game_frame()
             {
                 restart_after_timer = 1;
                 show_options();
+                show_controls();
             }
             timer = 255;
         }
@@ -547,13 +582,24 @@ void game_frame()
         }
         if (timer < 255) // not paused, probably the game preparing for something...
         {
-            if (gamepad_press[0]  & gamepad_start)
+            if (gamepad_press[0] & gamepad_start)
             {
-                timer = 0; // shortcut
-                if (restart_after_timer)
-                    return game_restart();
-                else
-                    return screen_reset();
+                // if we just pressed start, either go to special options (if R is pressed):
+                if (GAMEPAD_PRESSED(0, R))
+                {
+                    restart_after_timer = 1;
+                    timer = 255;
+                    show_controls();
+                    show_options();
+                }
+                else // or speed up whatever is happening:
+                {
+                    timer = 0; // shortcut
+                    if (restart_after_timer)
+                        return game_restart();
+                    else
+                        return screen_reset();
+                }
             }
             if (vga_frame % 60 == 0)
             {
@@ -769,7 +815,7 @@ void game_frame()
         if (superpixel[bullet[p][b].y][bullet[p][b].x] != bg_color)
         {
             if (superpixel[bullet[p][b].y][bullet[p][b].x] == 65535)
-            {   // wall color, ignore!
+            {   // wall color, ignore!  can't shoot through, either.
             }
             else if (superpixel[bullet[p][b].y][bullet[p][b].x] == bullet_color)
             {
@@ -779,40 +825,60 @@ void game_frame()
                     bullet[p][b].x == bullet[pb/BULLETS][pb%BULLETS].x)
                 {
                     bullet[pb/BULLETS][pb%BULLETS].alive = 0; 
-                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
                     break;
                 }
+                superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
             }
             else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
                      (snake[1-p].color & CODE_MASK))
             {
                 // kill off enemy snake (1-p) if it's his head, otherwise zip him up
-                if (bullet[p][b].y == snake[1-p].head.y && bullet[p][b].x == snake[1-p].head.x)
+                if (snake[1-p].alive)
                 {
-                    kill_snake(1-p); 
-                    message("killed enemy by a bullet\n");
+                    if (bullet[p][b].y == snake[1-p].head.y && bullet[p][b].x == snake[1-p].head.x)
+                    {
+                        kill_snake(1-p); 
+                        message("killed enemy by a bullet\n");
+                    }
+                    else // was not the head, zip up tail to where bullet hit
+                    {
+                        zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]);
+                        snake[1-p].tail_wait = -1; // tail will jump forward one
+                        message("hurt enemy by a bullet\n");
+                    }
+                    // don't blank the spot, since the tail needs to zip past its encoding
                 }
-                else // was not the head, zip up tail to where bullet hit
-                {
-                    zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]);
-                    message("hurt enemy by a bullet\n");
-                }
+                else
+                    // dead snake, put a hole in it
+                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
             }
             else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
                      (snake[p].color & CODE_MASK))
             {
                 // you just hurt or killed yourself!
-                if (bullet[p][b].y == snake[p].head.y && bullet[p][b].x == snake[p].head.x)
+                if (snake[p].alive)
                 {
-                    kill_snake(p); 
-                    message("killed by your own bullet\n");
+                    if (bullet[p][b].y == snake[p].head.y && bullet[p][b].x == snake[p].head.x)
+                    {
+                        kill_snake(p); 
+                        message("killed by your own bullet\n");
+                    }
+                    else // was not the head, zip up tail to where bullet hit
+                    {
+                        zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]);
+                        snake[p].tail_wait = -1; // tail will jump forward one
+                        message("hurt by your own bullet\n");
+                    }
+                    // don't blank the spot, since the tail needs to zip past its encoding
                 }
-                else // was not the head, zip up tail to where bullet hit
-                {
-                    zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]);
-                    message("hurt by your own bullet\n");
-                }
+                else
+                    // dead snake, put a hole in it
+                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
             }
+            else
+                // put hole in whatever it is.  if it was food, your bad!  less food overall.
+                superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+
             bullet[p][b].alive = 1; // will get killed here next...
         }
        
@@ -911,41 +977,46 @@ void game_frame()
             superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
 
             // finished with the snake's head, now go onto the snake's tail!
-            if (snake[p].tail_wait)
+            if (snake[p].tail_wait > 0)
                 --snake[p].tail_wait;
             else
             {
-                // decode the direction the tail is heading from the color it's on:
-                uint8_t tail_heading = decode(superpixel[snake[p].tail.y][snake[p].tail.x]);
-                // blank the tail
-                superpixel[snake[p].tail.y][snake[p].tail.x] = bg_color;
-                switch (tail_heading)
+                while (snake[p].tail_wait <= 0)
                 {
-                case UP:
-                    if (snake[p].tail.y)
-                        --snake[p].tail.y;
-                    else
-                        snake[p].tail.y = SCREEN_H-1; // should only happen on torus
-                    break;
-                case DOWN:
-                    if (snake[p].tail.y < SCREEN_H-1)
-                        ++snake[p].tail.y;
-                    else
-                        snake[p].tail.y = 0; // should only happen on torus
-                    break;
-                case LEFT: 
-                    if (snake[p].tail.x)
-                        --snake[p].tail.x;
-                    else
-                        snake[p].tail.x = SCREEN_W-1; // should only happen on torus
-                    break;
-                case RIGHT: 
-                    if (snake[p].tail.x < SCREEN_W-1)
-                        ++snake[p].tail.x;
-                    else
-                        snake[p].tail.x = 0; // should only happen on torus
-                    break;
+                    // decode the direction the tail is heading from the color it's on:
+                    uint8_t tail_heading = decode(superpixel[snake[p].tail.y][snake[p].tail.x]);
+                    // blank the tail
+                    superpixel[snake[p].tail.y][snake[p].tail.x] = bg_color;
+                    switch (tail_heading)
+                    {
+                    case UP:
+                        if (snake[p].tail.y)
+                            --snake[p].tail.y;
+                        else
+                            snake[p].tail.y = SCREEN_H-1; // should only happen on torus
+                        break;
+                    case DOWN:
+                        if (snake[p].tail.y < SCREEN_H-1)
+                            ++snake[p].tail.y;
+                        else
+                            snake[p].tail.y = 0; // should only happen on torus
+                        break;
+                    case LEFT: 
+                        if (snake[p].tail.x)
+                            --snake[p].tail.x;
+                        else
+                            snake[p].tail.x = SCREEN_W-1; // should only happen on torus
+                        break;
+                    case RIGHT: 
+                        if (snake[p].tail.x < SCREEN_W-1)
+                            ++snake[p].tail.x;
+                        else
+                            snake[p].tail.x = 0; // should only happen on torus
+                        break;
+                    }
+                    ++snake[p].tail_wait;
                 }
+                snake[p].tail_wait = 0;
             }
         } 
 
