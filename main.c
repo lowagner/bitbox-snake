@@ -14,7 +14,7 @@
 
 // other random variables:
 
-#define FOOD 16 // max food
+#define FOOD 5000 // should be some small-ish fraction of 19200 (max things on screen)
 #define BULLETS 3 // max bullets
 #define BULLET_LIFE 86
 #define INIT_FOOD 3
@@ -22,9 +22,10 @@
 #define INIT_SPEED 3 // higher is slower.  1 is fastest
 #define CODE_MASK 31710 // color equivalence should be & this mask.
 
-uint16_t player_color[2] = {RGB(255,0,0), RGB(0,50,255)};
-uint16_t dead_player_color[2] = {RGB(200,0,0), RGB(0,50,200)};
+const uint16_t player_color[2] = {RGB(255,0,0), RGB(0,50,255)};
+const uint16_t dead_player_color[2] = {RGB(200,0,0), RGB(0,50,200)};
 const uint16_t bullet_color = RGB(200,200,200);
+const uint16_t food_color = RGB(0,255,0);
 
 struct snake {
     struct {
@@ -50,22 +51,73 @@ uint8_t torus; // is the topography a torus?
 uint8_t single_player; // 
 uint8_t speed;
 uint8_t bullet_length;
-uint32_t starting_size;
+int32_t starting_size;
+int32_t food_count;
 
 uint8_t timer;
 uint8_t restart_after_timer;
-
-uint16_t food_color;
-uint8_t food_count;
-struct location {
-    uint8_t y, x;
-} food[FOOD];
 
 FATFS fat_fs;
 FIL fat_file;
 FRESULT fat_result;
 
 void game_restart();
+
+inline int32_t log_increment(int v)
+{
+    if (v < 5)
+        return 1;
+    else if (v < 115)
+        return 5;
+    else if (v < 1000)
+        return 59;
+    else
+        return 1000;
+}
+
+inline int32_t log_decrement(int v)
+{
+    if (v <= 5)
+        return 1;
+    else if (v <= 115)
+        return 5;
+    else if (v <= 1000)
+        return 59;
+    else
+        return 1000;
+}
+
+void make_food(int how_much)
+{
+    if (!torus)
+    {
+        for (int i=0; i<how_much; ++i)
+        {
+            uint8_t y = 1+rand()%(SCREEN_H-2);
+            uint8_t x = 1+rand()%(SCREEN_W-2);
+            while (superpixel[y][x] != bg_color)
+            {
+                y = 1+rand()%(SCREEN_H-2);
+                x = 1+rand()%(SCREEN_W-2);
+            }
+            superpixel[y][x] = food_color;
+        }
+    }
+    else
+    {
+        for (int i=0; i<how_much; ++i)
+        {
+            uint8_t y = rand()%SCREEN_H;
+            uint8_t x = rand()%SCREEN_W;
+            while (superpixel[y][x] != bg_color)
+            {
+                y = rand()%SCREEN_H;
+                x = rand()%SCREEN_W;
+            }
+            superpixel[y][x] = food_color;
+        }
+    }
+}
 
 uint16_t encode(uint16_t color, uint8_t heading)
 {   
@@ -169,78 +221,60 @@ void remove_walls()
 void screen_reset()
 {
     clear();
-    for (int i=0; i<food_count; ++i)
-        superpixel[food[i].y][food[i].x] = food_color;
     for (int p=0; p<2-single_player; ++p)
         superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
     if (!torus)
-    {
         make_walls();
-    }
+    make_food(food_count);
 }
 
-void show_duel()
+void show_duel_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=20, x0=SCREEN_W/2 - 9;
-    uint8_t x = x0+2;
+    uint8_t y=20;
+    uint8_t x = SCREEN_W/2 - 9 +2;
     if (!single_player)
     {
-        draw_d(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_u(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_e(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_l(y,x,c1,c2);
+        draw_d(y,x,c1,c2);x+=4;
+        draw_u(y,x,c2,c1);x+=4;
+        draw_e(y,x,c1,c2);x+=4;
+        draw_l(y,x,c2,c1);
     }
     else
     {
-        draw_s(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_o(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_l(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_o(y,x,c1,c2);
+        draw_s(y,x,c1,c2);x+=4;
+        draw_o(y,x,c2,c1);x+=4;
+        draw_l(y,x,c1,c2);x+=4;
+        draw_o(y,x,c2,c1);
     }
 }
 
-void show_torus()
+void show_torus_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=24, x0=SCREEN_W/2 - 9;
-    uint8_t x = x0;
+    uint8_t y=24, x=SCREEN_W/2 - 9;
     if (torus)
     {
-        draw_t(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_o(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_r(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_u(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
+        draw_t(y,x,c1,c2);x+=4;
+        draw_o(y,x,c2,c1);x+=4;
+        draw_r(y,x,c1,c2);x+=4;
+        draw_u(y,x,c2,c1);x+=4;
         draw_s(y,x,c1,c2);
     }
     else
     {
-        draw_w(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_a(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_l(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        draw_l(y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
+        draw_w(y,x,c1,c2);x+=4;
+        draw_a(y,x,c2,c1);x+=4;
+        draw_l(y,x,c1,c2);x+=4;
+        draw_l(y,x,c2,c1);x+=4;
         draw_s(y,x,c1,c2);
     }
 
 }
 
-void show_speed()
+void show_speed_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
@@ -248,111 +282,88 @@ void show_speed()
     uint8_t x = x0;
     // SPEED speed!
     x=x0-3;
-    draw_s(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_p(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_e(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_e(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
+    draw_s(y,x,c1,c2);x+=4;
+    draw_p(y,x,c2,c1);x+=4;
+    draw_e(y,x,c1,c2);x+=4;
+    draw_e(y,x,c2,c1);x+=4;
     draw_d(y,x,c1,c2);
 
     uint8_t felt_speed = (uint8_t) 10 - speed;
-    
-    swap_colors(&c1,&c2);x+=6;
-    numbers[felt_speed](y,x,c1,c2);
+    x+=6;
+    numbers[felt_speed](y,x,c2,c1);
 }
 
-void show_food()
+void show_big_number(int v, uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
 {
-    uint16_t c1 = RGB(255,255,0);
-    uint16_t c2 = RGB(0,255,255);
-    uint8_t y=32, x0=SCREEN_W/2 - 9;
-    uint8_t x = x0;
-    x=x0-3;
-    // FOOD
-    draw_f(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_o(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_o(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_d(y,x,c1,c2);
-    
-    swap_colors(&c1,&c2);x+=6;
-    numbers[food_count/10](y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    numbers[food_count%10](y,x,c1,c2);
-}
-
-void show_size()
-{
-    uint16_t c1 = RGB(255,255,0);
-    uint16_t c2 = RGB(0,255,255);
-    uint8_t y=36, x0=SCREEN_W/2 - 9;
-    uint8_t x = x0;
-    x=x0-5;
-    // SIZE
-    draw_s(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_i(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_z(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_e(y,x,c1,c2);
- 
-    // put in the number
-    swap_colors(&c1,&c2);x+=6;
-    if (starting_size < 1000)
+    if (v < 1000)
     {
-        numbers[starting_size/100](y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        numbers[(starting_size/10)%10](y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        numbers[starting_size%10](y,x,c1,c2);
+        numbers[v/100](y,x,c1,c2);x+=4;
+        numbers[(v/10)%10](y,x,c2,c1);x+=4;
+        numbers[v%10](y,x,c1,c2);
     }
     else
     {
-        numbers[starting_size/10000](y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
-        numbers[(starting_size/1000)%10](y,x,c1,c2);
-        swap_colors(&c1,&c2);x+=4;
+        numbers[v/10000](y,x,c1,c2);x+=4;
+        numbers[(v/1000)%10](y,x,c2,c1);x+=4;
         draw_k(y,x,c1,c2);
-
     }
 }
 
-void show_bullets()
+void show_food_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=40, x0=SCREEN_W/2 - 9;
-    uint8_t x = x0;
-    x=x0-1;
-    // bullets
-    draw_g(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_u(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_n(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_s(y,x,c1,c2);
+    uint8_t y=32, x=SCREEN_W/2 - 9-5;
+    // FOOD
+    draw_f(y,x,c1,c2);x+=4;
+    draw_o(y,x,c2,c1);x+=4;
+    draw_o(y,x,c1,c2);x+=4;
+    draw_d(y,x,c2,c1);
+    x+=6;
+    show_big_number(food_count, y, x, c1, c2);
+}
+
+void show_size_options()
+{
+    uint16_t c1 = RGB(255,255,0);
+    uint16_t c2 = RGB(0,255,255);
+    uint8_t y=36, x=SCREEN_W/2 - 9-5;
+    // SIZE
+    draw_s(y,x,c1,c2);x+=4;
+    draw_i(y,x,c2,c1);x+=4;
+    draw_z(y,x,c1,c2);x+=4;
+    draw_e(y,x,c2,c1);
  
     // put in the number
-    swap_colors(&c1,&c2);x+=6;
+    x+=6;
+    show_big_number(starting_size, y, x, c1, c2);
+}
+
+void show_gun_options()
+{
+    uint16_t c1 = RGB(255,255,0);
+    uint16_t c2 = RGB(0,255,255);
+    uint8_t y=40, x=SCREEN_W/2 - 9-1;
+    // bullets
+    draw_g(y,x,c1,c2);x+=4;
+    draw_u(y,x,c2,c1);x+=4;
+    draw_n(y,x,c1,c2);x+=4;
+    draw_s(y,x,c2,c1);
+ 
+    // put in the number
+    x+=6;
     numbers[bullet_length%10](y,x,c1,c2);
 
 }
 
 void show_options()
 {
-    show_duel();
-    show_torus();
-    show_speed();
-    show_food();
-    show_size();
-    show_bullets();
+    show_duel_options();
+    show_torus_options();
+    show_speed_options();
+    show_food_options();
+    show_size_options();
+    show_gun_options();
     
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
@@ -361,32 +372,22 @@ void show_options()
     uint8_t x0=SCREEN_W/2 - 9;
     uint8_t x=x0-6;
     // LOWAGNER
-    draw_l(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_o(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_w(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_a(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_g(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_n(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_e(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_r(y,x,c1,c2);
+    draw_l(y,x,c1,c2);x+=4;
+    draw_o(y,x,c2,c1);x+=4;
+    draw_w(y,x,c1,c2);x+=4;
+    draw_a(y,x,c2,c1);x+=4;
+    draw_g(y,x,c1,c2);x+=4;
+    draw_n(y,x,c2,c1);x+=4;
+    draw_e(y,x,c1,c2);x+=4;
+    draw_r(y,x,c2,c1);
 
     y += 4;
     x = x0-2;
     // 2015
-    swap_colors(&c1,&c2);x+=4;
-    draw_z(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_o(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
-    draw_1(y,x,c1,c2);
-    swap_colors(&c1,&c2);x+=4;
+    x+=4;
+    draw_z(y,x,c2,c1);x+=4;
+    draw_o(y,x,c1,c2);x+=4;
+    draw_1(y,x,c2,c1);x+=4;
     draw_s(y,x,c1,c2);
 }
 
@@ -443,34 +444,7 @@ void game_restart()
     for (int p=0; p<2; ++p)
     for (int b=0; b<BULLETS; ++b)
             bullet[p][b].alive = 0;
-
-    food_color = RGB(0,255,0);
-    if (food_count > 1)
-    {
-        food[0].y = 60;
-        food[0].x = 100;
-        food[1].y = 60;
-        food[1].x = 60;
-    }
-    else
-    {
-        food[0].y = 60;
-        food[0].x = 80; 
-        food[1].y = 30;
-        food[1].x = 80;
-    }
     
-    for (int i=2; i<FOOD; ++i)
-    {
-        // pre-randomize the food positions
-        food[i].y = rand()%SCREEN_H;
-        food[i].x = rand()%SCREEN_W;
-        while (superpixel[food[i].y][food[i].x] != bg_color)
-        {
-            food[i].y = rand()%SCREEN_H;
-            food[i].x = rand()%SCREEN_W;
-        }
-    }
     screen_reset();
 
     timer = 5;
@@ -645,7 +619,7 @@ void game_frame()
                     ++speed;
                 message("speed = %d\n", (int)speed);
                 if (restart_after_timer)
-                    show_speed();
+                    show_speed_options();
             }
             else if (gamepad_press[0] & gamepad_up)
             {
@@ -653,7 +627,7 @@ void game_frame()
                     --speed;
                 message("speed = %d\n", (int)speed);
                 if (restart_after_timer)
-                    show_speed();
+                    show_speed_options();
             }
             if (gamepad_press[0] & gamepad_Y)
             {
@@ -665,7 +639,7 @@ void game_frame()
                     show_options();
                 }
                 else
-                    show_torus();
+                    show_torus_options();
 
                 if (torus)
                     remove_walls();
@@ -681,7 +655,7 @@ void game_frame()
                     show_options();
                 }
                 else
-                    show_bullets();
+                    show_gun_options();
             }
             if (gamepad_press[0] & gamepad_X)
             {
@@ -709,71 +683,64 @@ void game_frame()
                     }
                 }
                 if (restart_after_timer)
-                    show_duel();
+                    show_duel_options();
             }
             if (gamepad_press[0] & gamepad_R)
             {
-                if (starting_size < 19000)
+                if (starting_size < 13000)
                 {
-                    uint32_t increment;
-                    if (starting_size < 111)
-                        increment= 5;
-                    else if (starting_size < 1000)
-                        increment = 59;
-                    else
-                        increment = 1000;
+                    int32_t increment = log_increment(starting_size);
 
                     starting_size += increment;
                     for (int p=0; p<2-single_player; ++p)
                         snake[p].tail_wait += increment;
                     message("size = %d\n", (int)starting_size);
                     if (restart_after_timer)
-                        show_size();
+                        show_size_options();
                 }
             }
             else if (gamepad_press[0] & gamepad_L)
             {
-                if (starting_size > 6)
+                if (starting_size > 1)
                 {
-                    uint32_t decrement;
-                    if (starting_size < 116)
-                        decrement= 5;
-                    else if (starting_size < 1001)
-                        decrement = 59;
-                    else
-                        decrement = 1000;
+                    uint32_t decrement = log_decrement(starting_size);
 
                     starting_size -= decrement;
                     for (int p=0; p<2-single_player; ++p)
                         snake[p].tail_wait -= decrement;
                     message("size = %d\n", (int)starting_size);
                     if (restart_after_timer)
-                        show_size();
+                        show_size_options();
                 }
             }
             if (gamepad_press[0] & gamepad_right)
             {
                 if (food_count < FOOD)
                 {
-                    while (superpixel[food[food_count].y][food[food_count].x] != bg_color)
-                    {
-                        food[food_count].y = rand()%SCREEN_H;
-                        food[food_count].x = rand()%SCREEN_W;
-                    }
-                    superpixel[food[food_count].y][food[food_count].x] = food_color;
-                    ++food_count;
+                    int32_t increment = log_increment(food_count);
+
+                    food_count += increment;
+                    make_food(increment);
+                    
                     if (restart_after_timer)
-                        show_food();
+                        show_food_options();
                 }
             }
             else if (gamepad_press[0] & gamepad_left)
             {
                 if (food_count)
                 { 
-                    --food_count;
-                    superpixel[food[food_count].y][food[food_count].x] = bg_color;
-                    if (restart_after_timer)
-                        show_food();
+                    int32_t decrement = log_decrement(food_count);
+
+                    food_count -= decrement;
+                    if (!restart_after_timer)
+                    {
+                        restart_after_timer = 1;
+                        show_options();
+                    }
+                    else
+                        show_food_options();
+
                 }
             }
         }
@@ -822,8 +789,8 @@ void game_frame()
         // check collisions
         if (superpixel[bullet[p][b].y][bullet[p][b].x] != bg_color)
         {
-            if (superpixel[bullet[p][b].y][bullet[p][b].x] == 65535)
-            {   // wall color, ignore!  can't shoot through, either.
+            if (superpixel[bullet[p][b].y][bullet[p][b].x] & (1<<15))
+            {   // indestructible, ignore!  can't shoot through, either.
             }
             else if (superpixel[bullet[p][b].y][bullet[p][b].x] == bullet_color)
             {
@@ -947,31 +914,8 @@ void game_frame()
             {
                 if (superpixel[snake[p].head.y][snake[p].head.x] == food_color)
                 {
-                    for (int i=0; i<food_count; ++i)
-                    {
-                        if (food[i].y == snake[p].head.y && food[i].x == snake[p].head.x)
-                        {
-                            if (torus)
-                            {
-                                while (superpixel[food[i].y][food[i].x] != bg_color)
-                                {
-                                    food[i].y = rand()%SCREEN_H;
-                                    food[i].x = rand()%SCREEN_W;
-                                }
-                            }
-                            else
-                            {
-                                while (superpixel[food[i].y][food[i].x] != bg_color)
-                                {
-                                    food[i].y = 1 + (rand()%(SCREEN_H-2));
-                                    food[i].x = 1 + (rand()%(SCREEN_W-2));
-                                }
-                            }
-                            superpixel[food[i].y][food[i].x] = food_color;
-                            break;
-                        }
-                    }
                     ++snake[p].tail_wait;
+                    make_food(1);
                 }
                 else
                 {
