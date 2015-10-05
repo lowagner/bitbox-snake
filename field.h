@@ -4,6 +4,8 @@
 #include "nonsimple.h"
 #include <stdlib.h> // rand
 
+// variables for heading / direction:
+
 #define UP 0
 #define LEFT 1
 #define RIGHT 2
