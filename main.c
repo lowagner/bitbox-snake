@@ -324,6 +324,9 @@ void game_frame()
                 {
                     restart_after_timer = 1;
                     timer = 255;
+                    superpixel[56][80] = bg_color;
+                    superpixel[58][80] = bg_color;
+                    superpixel[60][80] = bg_color;
                     show_controls();
                     show_options();
                 }
@@ -408,12 +411,19 @@ void game_frame()
             if (gamepad_press[0] & gamepad_B)
             {   // add/remove bullets
                 bullet_length = (bullet_length + 1)%4;
-                if (!restart_after_timer)
-                {
-                    restart_after_timer = 1; // you must reset the game
-                    show_options();
+                if (bullet_length == 0)
+                {   // we switched from guns to no guns, this requires a reset of the game...
+                    // kill all alive bullets:
+                    for (int p=0; p<2; ++p)
+                    for (int b=0; b<BULLETS; ++b)
+                        if (bullet[p][b].alive)
+                        {
+                            superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+                            bullet[p][b].alive = 0;
+                        }
+                        
                 }
-                else
+                if (restart_after_timer)
                     show_gun_options();
             }
             if (gamepad_press[0] & gamepad_X)
@@ -732,7 +742,7 @@ void game_frame()
         } 
 
         // fire bullets if you want and are able
-        if (gamepad_press[p] & gamepad_B)
+        if (gamepad_press[p] & gamepad_B && bullet_length)
         {   
             message("FIRE!\n");
             // scan bullets for anyone not alive
@@ -777,6 +787,6 @@ void game_frame()
             }
         }
     }
-    
-
 }
+
+
