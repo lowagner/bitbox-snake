@@ -1,69 +1,12 @@
-#include <stdlib.h> // rand
 #include <math.h>
 #include "nonsimple.h"
-#include "fatfs/ff.h"
-#include "string.h" // memset
+#include "field.h"
+#include "io.h"
 #include "abc.h"
 
 // variables for heading / direction:
 
-#define UP 0
-#define LEFT 1
-#define RIGHT 2
-#define DOWN 3
-
-// other random variables:
-
-#define FOOD 5000 // should be some small-ish fraction of 19200 (max things on screen)
-#define BULLETS 3 // max bullets
-#define BULLET_LIFE 86
-#define INIT_FOOD 3
-#define INIT_SIZE 20
-#define INIT_SPEED 3 // higher is slower.  1 is fastest
-#define CODE_MASK 31710 // color equivalence should be & this mask.
-
-const uint16_t player_color[2] = {RGB(255,0,0), RGB(0,50,255)};
-const uint16_t dead_player_color[2] = {RGB(200,0,0), RGB(0,50,200)};
-const uint16_t bullet_color = RGB(200,200,200);
-const uint16_t food_color = RGB(0,255,0);
-
-struct snake {
-    struct {
-        uint8_t y, x;
-    } head;
-    struct {
-        uint8_t y, x;
-    } tail;
-    uint16_t color;
-    uint8_t heading; // direction that the snake is going.
-    uint8_t alive;
-    int32_t tail_wait; // set tail_wait > 0 to grow snake.
-} snake[2];
-
-struct bullet {
-    uint8_t y, x;
-    uint8_t heading;
-    uint8_t alive;
-} bullet[2][BULLETS];
-
-// game variables
-uint8_t torus; // is the topography a torus?
-uint8_t single_player; // 
-uint8_t speed;
-uint8_t bullet_length;
-int32_t starting_size;
-int32_t food_count;
-
-uint8_t timer;
-uint8_t restart_after_timer;
-
-FATFS fat_fs;
-FIL fat_file;
-FRESULT fat_result;
-
-void game_restart();
-
-inline int32_t log_increment(int v)
+inline int32_t option_increment(int v)
 {
     if (v < 5)
         return 1;
@@ -75,7 +18,7 @@ inline int32_t log_increment(int v)
         return 1000;
 }
 
-inline int32_t log_decrement(int v)
+inline int32_t option_decrement(int v)
 {
     if (v <= 5)
         return 1;
@@ -85,147 +28,6 @@ inline int32_t log_decrement(int v)
         return 59;
     else
         return 1000;
-}
-
-void make_food(int how_much)
-{
-    if (!torus)
-    {
-        for (int i=0; i<how_much; ++i)
-        {
-            uint8_t y = 1+rand()%(SCREEN_H-2);
-            uint8_t x = 1+rand()%(SCREEN_W-2);
-            while (superpixel[y][x] != bg_color)
-            {
-                y = 1+rand()%(SCREEN_H-2);
-                x = 1+rand()%(SCREEN_W-2);
-            }
-            superpixel[y][x] = food_color;
-        }
-    }
-    else
-    {
-        for (int i=0; i<how_much; ++i)
-        {
-            uint8_t y = rand()%SCREEN_H;
-            uint8_t x = rand()%SCREEN_W;
-            while (superpixel[y][x] != bg_color)
-            {
-                y = rand()%SCREEN_H;
-                x = rand()%SCREEN_W;
-            }
-            superpixel[y][x] = food_color;
-        }
-    }
-}
-
-uint16_t encode(uint16_t color, uint8_t heading)
-{   
-    // returns encoded color
-    // encode up to 16 values into the color (4 bits):
-    return (color & CODE_MASK) | (heading & 1) | ((heading & 2) << 4) | ((heading & 4) << 8) | ((heading & 8) << 12);
-    
-}
-
-uint8_t decode(uint16_t color)
-{
-    return (uint8_t)((color & 1) | ((color >> 4) & 2) | ((color >> 8) & 4) | ((color >> 12) & 8));
-}
-
-void snake_init(int p, uint8_t y, uint8_t x, uint8_t heading, int32_t size)
-{
-    snake[p].head.y = snake[p].tail.y = y;
-    snake[p].head.x = snake[p].tail.x = x;
-    snake[p].color = player_color[p];
-    snake[p].heading = heading;
-    if (size <= 0)
-        size = 1;
-    snake[p].tail_wait = size;
-    snake[p].alive = 1;
-}
-
-void kill_snake(int p)
-{
-    snake[p].alive = 0;
-    if (snake[0].alive == 0 && snake[1].alive == 0)
-    {   // reset game, both are dead!
-        timer = 3;
-        restart_after_timer = 1;
-    }
-}
-
-void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
-{
-    // zip up snake p until the tail reaches point y,x.
-    // leave a trail of "color" in the wake.
-    int i = 0; // counter, once it exceeds the largest possible snake length, it returns...
-    while (!(snake[p].tail.y == y && snake[p].tail.x == x))
-    {
-        // decode the direction the tail is heading from the color it's on:
-        uint8_t tail_heading = decode(superpixel[snake[p].tail.y][snake[p].tail.x]);
-        // blank the tail
-        superpixel[snake[p].tail.y][snake[p].tail.x] = color;
-        switch (tail_heading)
-        {
-        case UP:
-            if (snake[p].tail.y)
-                --snake[p].tail.y;
-            else
-                snake[p].tail.y = SCREEN_H-1; 
-            break;
-        case DOWN:
-            if (snake[p].tail.y < SCREEN_H-1)
-                ++snake[p].tail.y;
-            else
-                snake[p].tail.y = 0; 
-            break;
-        case LEFT: 
-            if (snake[p].tail.x)
-                --snake[p].tail.x;
-            else
-                snake[p].tail.x = SCREEN_W-1; 
-            break;
-        case RIGHT: 
-            if (snake[p].tail.x < SCREEN_W-1)
-                ++snake[p].tail.x;
-            else
-                snake[p].tail.x = 0; 
-            break;
-        }
-
-        if (++i > 19200)
-            // something got funny...
-            return game_restart();
-    }
-    // remove any wait from the tail
-    snake[p].tail_wait = 0;
-}
-
-void make_walls()
-{
-    // setup the walls on the torus
-    memset(superpixel[0], 255, 2*SCREEN_W);
-    memset(superpixel[SCREEN_H-1], 255, 2*SCREEN_W);
-    for (int j=0; j<SCREEN_H; ++j)
-        superpixel[j][0] = superpixel[j][SCREEN_W-1] = 65535;
-}
-
-void remove_walls()
-{
-    memset(superpixel[0], 0, 2*SCREEN_W);
-    memset(superpixel[SCREEN_H-1], 0, 2*SCREEN_W);
-    for (int j=0; j<SCREEN_H; ++j)
-        superpixel[j][0] = superpixel[j][SCREEN_W-1] = 0;
-}
-
-void screen_reset()
-{
-    clear();
-    for (int p=0; p<2-single_player; ++p)
-        superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
-    if (!torus)
-        make_walls();
-    make_food(food_count);
 }
 
 void show_duel_options()
@@ -424,41 +226,34 @@ void game_restart()
 {
     bg_color = 0; // this MUST BE ZERO.  DO NOT MODIFY.
 
-    srand(vga_frame); // reseed the random # generator
+    message("restarting game\n");
 
-    uint16_t test = encode(bg_color, 0);
-    message("encoding test:  %d -> %d\n", (int)bg_color, (int)test);
-    message("     decoding:  %d\n", (int)decode(test));
+    srand(vga_frame); // reseed the random # generator
 
     graph_line_callback = NULL;
 
     if (single_player)
     {
-        snake_init(0, 60,90, UP, starting_size);
+        init_snake(0, 60,90, UP, starting_size);
+        snake[1].alive = 0;
     }
     else
     {
-        snake_init(0, 60,90, UP, starting_size);
-        snake_init(1, 60,70, DOWN, starting_size);
+        init_snake(0, 60,90, UP, starting_size);
+        init_snake(1, 60,70, DOWN, starting_size);
     }
-    for (int p=0; p<2; ++p)
-    for (int b=0; b<BULLETS; ++b)
-            bullet[p][b].alive = 0;
-    
+ 
     screen_reset();
 
-    timer = 5;
     restart_after_timer = 0;
-
-    if (single_player)
-        snake[1].alive = 0;
-
     show_options();
+    timer = 4;
 }
 
 void game_init()
 { 
-    srand(30);
+    io_init();
+
     torus = 1; 
     speed = INIT_SPEED; // smaller values is faster snakes
     // speed should not be any larger than 9.  that's already super slow!
@@ -492,12 +287,11 @@ void game_frame()
         {
             if (restart_after_timer)
             {
-                message("restarting game\n");
+                message("unpausing from menu\n");
                 game_restart();
-                timer = 4;
                 return;
             }
-            message("set timer to zero\n");
+            message("unpausing\n");
             timer = 0;
         }
         else if (timer == 0) // we weren't paused
@@ -515,47 +309,11 @@ void game_frame()
     // pause game if it's on a timer...
     if (timer)
     {
-        if (gamepad_press[0]  & gamepad_select)
+        if (gamepad_press[0] & gamepad_select)
         {   // save screen shot
-            srand(vga_frame); // seed random # generator
             message("taking picture\n");
-            char filename[13];
-            filename[0] = 's';
-            filename[1] = 'n';
-            filename[2] = 'a';
-            filename[3] = 'k';
-            filename[4] = 'e';
-            int num = rand()%1000;
-            filename[5] = '0' + num%10; // do reverse base 10
-            num /= 10;
-            filename[6] = '0' + num%10;
-            num /= 10;
-            filename[7] = '0' + num%10;
-            filename[8] = '.';
-            filename[9] = 'p';
-            filename[10] = 'p';
-            filename[11] = 'm';
-            filename[12] = 0;
-            fat_result = f_open(&fat_file,filename, FA_WRITE | FA_OPEN_ALWAYS);
-            f_lseek(&fat_file, 0);
-            if (fat_result == FR_OK)
-            {
-                UINT bytes_get;
-                f_write(&fat_file, "P6\n160 120 31\n", 14, &bytes_get);
-                //uint32_t *src = (uint32_t*) superpixel;
-                for (int j=0; j<SCREEN_H; j++)
-                for (int i=0; i<SCREEN_W; i++)
-                {
-                    uint16_t C = superpixel[j][i];
-                    char msg[3];
-                    msg[0] = (C >> 10)&31; // red
-                    msg[1] = (C >> 5)&31; // green
-                    msg[2] = (C)&31; // blue
-                    f_write(&fat_file, msg, 3, &bytes_get);
-                }
-                f_close(&fat_file);
-            }
-
+            take_screenshot();
+            return;
         }
         if (timer < 255) // not paused, probably the game preparing for something...
         {
@@ -572,6 +330,7 @@ void game_frame()
                 else // or speed up whatever is happening:
                 {
                     timer = 0; // shortcut
+                    message("speeding up whatever is happening (by start)\n");
                     if (restart_after_timer)
                         return game_restart();
                     else
@@ -611,7 +370,7 @@ void game_frame()
                 }
             }
         }
-        else // we're paused!  show the options and allow them to change
+        else // we're paused!  show the options and/or allow them to change
         {
             if (gamepad_press[0] & gamepad_down)
             {
@@ -679,7 +438,7 @@ void game_frame()
                             y = rand()%SCREEN_H;
                             x = rand()%SCREEN_W;
                         }
-                        snake_init(1, y,x, rand()%4, starting_size);
+                        init_snake(1, y,x, rand()%4, starting_size);
                     }
                 }
                 if (restart_after_timer)
@@ -689,7 +448,7 @@ void game_frame()
             {
                 if (starting_size < 13000)
                 {
-                    int32_t increment = log_increment(starting_size);
+                    int32_t increment = option_increment(starting_size);
 
                     starting_size += increment;
                     for (int p=0; p<2-single_player; ++p)
@@ -703,7 +462,7 @@ void game_frame()
             {
                 if (starting_size > 1)
                 {
-                    uint32_t decrement = log_decrement(starting_size);
+                    uint32_t decrement = option_decrement(starting_size);
 
                     starting_size -= decrement;
                     for (int p=0; p<2-single_player; ++p)
@@ -717,7 +476,7 @@ void game_frame()
             {
                 if (food_count < FOOD)
                 {
-                    int32_t increment = log_increment(food_count);
+                    int32_t increment = option_increment(food_count);
 
                     food_count += increment;
                     make_food(increment);
@@ -730,7 +489,7 @@ void game_frame()
             {
                 if (food_count)
                 { 
-                    int32_t decrement = log_decrement(food_count);
+                    int32_t decrement = option_decrement(food_count);
 
                     food_count -= decrement;
                     if (!restart_after_timer)

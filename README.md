@@ -15,7 +15,7 @@ start pauses the game.  pressing buttons while paused, besides start, will modif
   * guns 0:  no guns
   * guns 1-2-3:  bullets shoot slowly-fast-faster
 * R/L:  increases/decreases starting snake size
-* select:  takes a picture of the current screen, saves it to snakeXXX.ppm.
+* select:  takes a picture of the current screen, saves it to SNAKEXXX.PPM.
 
 if you want to see the variables you are modifying, you can do so by pressing R+start.
 
