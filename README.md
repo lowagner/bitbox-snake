@@ -35,4 +35,6 @@ the option/intro screen above, and other in-game screenshots below:
 
 ![in game action](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake747.png)
 
+![in game action](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake001.png)
 
+![in game action](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake885.png)
