@@ -49,6 +49,7 @@ struct bullet {
 extern struct bullet bullet[2][BULLETS];
 
 // game variables
+extern uint8_t dynamics; // on/off for bullet/snake physics
 extern uint8_t torus; // is the topography a torus?
 extern uint8_t speed;
 extern uint8_t bullet_length;
@@ -59,8 +60,7 @@ extern int32_t food_count;
 extern uint8_t timer;
 extern uint8_t restart_after_timer;
 extern uint8_t single_player; // 
-
-void game_restart();
+extern uint16_t gamepad_press[2]; // new button presses only!
 
 
 // field-specific functions
@@ -76,6 +76,10 @@ void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color);
 
 void make_walls();
 void remove_walls();
-void screen_reset();
+
+
+// some things defined in main that other people need to see
+void start_play_countdown();
+void show_options();
 
 #endif

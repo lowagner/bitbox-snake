@@ -7,6 +7,7 @@ const uint16_t bullet_color = RGB(200,200,200);
 const uint16_t food_color = RGB(0,255,0);
 
 // game variables
+uint8_t dynamics; // on/off for bullet/snake physics
 uint8_t torus; // is the topography a torus?
 uint8_t speed;
 uint8_t bullet_length;
@@ -17,6 +18,7 @@ int32_t food_count;
 uint8_t timer;
 uint8_t restart_after_timer;
 uint8_t single_player; // 
+uint16_t gamepad_press[2]; // new button presses only!
 
 struct snake snake[2];
 struct bullet bullet[2][BULLETS];
@@ -133,7 +135,7 @@ void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
 
         if (++i > 19200)
             // something got funny...
-            return game_restart();
+            return start_play_countdown();
     }
     // remove any wait from the tail
     snake[p].tail_wait = 0;
@@ -156,19 +158,3 @@ void remove_walls()
         superpixel[j][0] = superpixel[j][SCREEN_W-1] = 0;
 }
 
-void screen_reset()
-{
-    message("clear screen\n");
-    // black everything:
-    clear();
-    // get rid of bullets:
-    for (int p=0; p<2; ++p)
-    for (int b=0; b<BULLETS; ++b)
-            bullet[p][b].alive = 0;
-    // reset where snake is
-    for (int p=0; p<2-single_player; ++p)
-        superpixel[snake[p].head.y][snake[p].head.x] = snake[p].color;
-    if (!torus)
-        make_walls();
-    make_food(food_count);
-}

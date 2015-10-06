@@ -6,14 +6,19 @@
 #include "abc.h"
 #include "io.h"
 
-void_fn *mode_restart;
+void_fn *start_mode_play;
 void_fn *show_mode_options;
+void_fn *update_mode_options;
 
 
 void show_options()
 {
     if (!show_mode_options)
+    {
+        start_mode_play = &start_arcade_play;
         show_mode_options = &show_arcade_options;
+        update_mode_options = &update_arcade_options;
+    }
     show_mode_options();
     
     uint16_t c1 = RGB(255,255,0);
@@ -42,32 +47,49 @@ void show_options()
     draw_s(y,x,c1,c2);
 }
 
-void game_restart()
+void start_game_play()
+{
+    // get rid of bullets:
+    for (int p=0; p<2; ++p)
+    for (int b=0; b<BULLETS; ++b)
+            bullet[p][b].alive = 0;
+
+    // reset screen and what not.
+    if (!start_mode_play)
+    {
+        start_mode_play = &start_arcade_play;
+        show_mode_options = &show_arcade_options;
+        update_mode_options = &update_arcade_options;
+    }
+    start_mode_play();
+}
+
+void start_play_countdown()
 {
     bg_color = 0; // this MUST BE ZERO.  DO NOT MODIFY.
-
     message("restarting game\n");
-
     srand(vga_frame); // reseed the random # generator
 
     graph_line_callback = NULL;
 
-    if (!mode_restart)
-        mode_restart = &arcade_restart; // default to arcade mode
-    mode_restart();
- 
-    screen_reset();
+    // give a preview of what the screen will look like:
+    start_game_play();
 
+    timer = 4; // after 4 seconds...,
+    // do not restart after timer, hit play:
     restart_after_timer = 0;
+
+    // show the options during the countdown:
     show_options();
-    timer = 4;
 }
 
 void game_init()
 { 
     io_init();
 
-    mode_restart = &arcade_restart; // start in arcade/free-range mode
+    start_mode_play = &start_arcade_play;
+    show_mode_options = &show_arcade_options;
+    update_mode_options = &update_arcade_options;
 
     torus = 1; 
     speed = INIT_SPEED; // smaller values is faster snakes
@@ -75,379 +97,15 @@ void game_init()
     food_count = INIT_FOOD;
     starting_size = INIT_SIZE;
 
-    game_restart();
+    start_play_countdown();
 
     timer = 255; // go to pause
     restart_after_timer = 1; // go to menu on pause
     show_controls();
 }
 
-void game_frame()
+void do_snake_dynamics()
 {
-    static uint16_t old_gamepad[2];
-
-    kbd_emulate_gamepad();
-    
-    uint16_t gamepad_press[2] = { gamepad_buttons[0] & ~old_gamepad[0],
-    gamepad_buttons[1] & ~old_gamepad[1] };
-
-    old_gamepad[0] = gamepad_buttons[0];
-    old_gamepad[1] = gamepad_buttons[1];
-
-    // meta game controls here:
-
-    if (gamepad_press[0] & gamepad_start)
-    {
-        if (timer == 255) // if we were paused...
-        {
-            if (restart_after_timer)
-            {
-                message("unpausing from menu\n");
-                game_restart();
-                return;
-            }
-            message("unpausing\n");
-            timer = 0;
-        }
-        else if (timer == 0) // we weren't paused
-        {
-            if (GAMEPAD_PRESSED(0, R))
-            {
-                restart_after_timer = 1;
-                show_options();
-                show_controls();
-            }
-            timer = 255;
-        }
-    }
-
-    // pause game if it's on a timer...
-    if (timer)
-    {
-        if (gamepad_press[0] & gamepad_select)
-        {   // save screen shot
-            message("taking picture\n");
-            take_screenshot();
-            return;
-        }
-        if (timer < 255) // not paused, probably the game preparing for something...
-        {
-            if (gamepad_press[0] & gamepad_start)
-            {
-                // if we just pressed start, either go to special options (if R is pressed):
-                if (GAMEPAD_PRESSED(0, R))
-                {
-                    restart_after_timer = 1;
-                    timer = 255;
-                    superpixel[56][80] = bg_color;
-                    superpixel[58][80] = bg_color;
-                    superpixel[60][80] = bg_color;
-                    show_controls();
-                    show_options();
-                }
-                else // or speed up whatever is happening:
-                {
-                    timer = 0; // shortcut
-                    message("speeding up whatever is happening (by start)\n");
-                    if (restart_after_timer)
-                        return game_restart();
-                    else
-                        return screen_reset();
-                }
-            }
-            if (vga_frame % 60 == 0)
-            {
-                --timer;
-                if (restart_after_timer)
-                {   
-                    // showing the player their mistake,
-                    // until timer runs out:
-                    if (!timer)
-                        game_restart();
-                }
-                else // no restart, count down!
-                {
-                    switch (timer)
-                    {
-                    case 3:
-                        superpixel[56][80] = RGB(255,0,0);
-                        superpixel[58][80] = RGB(255,255,0);
-                        superpixel[60][80] = RGB(0,255,0);
-                        break;
-                    case 2:
-                        superpixel[56][80] = bg_color;
-                        break;
-                    case 1:
-                        superpixel[58][80] = bg_color;
-                        break;
-                    case 0:
-                        screen_reset();
-                        break;
-                    }
-
-                }
-            }
-        }
-        else // we're paused!  show the options and/or allow them to change
-        {
-            if (gamepad_press[0] & gamepad_down)
-            {
-                if (speed < 9)
-                    ++speed;
-                message("speed = %d\n", (int)speed);
-                if (restart_after_timer)
-                    show_speed_options();
-            }
-            else if (gamepad_press[0] & gamepad_up)
-            {
-                if (speed > 1)
-                    --speed;
-                message("speed = %d\n", (int)speed);
-                if (restart_after_timer)
-                    show_speed_options();
-            }
-            if (gamepad_press[0] & gamepad_Y)
-            {
-                torus = 1 - torus;
-                message("torus = %d\n", (int)torus);
-                if (!restart_after_timer)
-                {
-                    restart_after_timer = 1; // you must reset the game
-                    show_options();
-                }
-                else
-                    show_torus_options();
-
-                if (torus)
-                    remove_walls();
-                else
-                    make_walls();
-            }
-            if (gamepad_press[0] & gamepad_B)
-            {   // add/remove bullets
-                bullet_length = (bullet_length + 1)%4;
-                if (bullet_length == 0)
-                {   // we switched from guns to no guns, this requires a reset of the game...
-                    // kill all alive bullets:
-                    for (int p=0; p<2; ++p)
-                    for (int b=0; b<BULLETS; ++b)
-                        if (bullet[p][b].alive)
-                        {
-                            superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
-                            bullet[p][b].alive = 0;
-                        }
-                        
-                }
-                if (restart_after_timer)
-                    show_gun_options();
-            }
-            if (gamepad_press[0] & gamepad_X)
-            {
-                single_player = 1 - single_player;
-                message("single_player = %d\n", (int)single_player);
-                if (!restart_after_timer)
-                { // create or destroy second player now
-                    if (single_player)
-                    {   // zip up tail til it reaches the head
-                        // now can remove the head (and tail):
-                        zip_snake(1, snake[1].head.y, snake[1].head.x,  bg_color);
-                        // kill off head, too:
-                        superpixel[snake[1].head.y][snake[1].head.x] = bg_color;
-                    }
-                    else
-                    {
-                        // find a spot to put second player
-                        uint8_t y = rand()%SCREEN_H, x = rand()%SCREEN_W;
-                        while (superpixel[y][x] != bg_color)
-                        {
-                            y = rand()%SCREEN_H;
-                            x = rand()%SCREEN_W;
-                        }
-                        init_snake(1, y,x, rand()%4, starting_size);
-                    }
-                }
-                if (restart_after_timer)
-                    show_duel_options();
-            }
-            if (gamepad_press[0] & gamepad_R)
-            {
-                if (starting_size < 13000)
-                {
-                    int32_t increment = option_increment(starting_size);
-
-                    starting_size += increment;
-                    for (int p=0; p<2-single_player; ++p)
-                        snake[p].tail_wait += increment;
-                    message("size = %d\n", (int)starting_size);
-                    if (restart_after_timer)
-                        show_size_options();
-                }
-            }
-            else if (gamepad_press[0] & gamepad_L)
-            {
-                if (starting_size > 1)
-                {
-                    uint32_t decrement = option_decrement(starting_size);
-
-                    starting_size -= decrement;
-                    for (int p=0; p<2-single_player; ++p)
-                        snake[p].tail_wait -= decrement;
-                    message("size = %d\n", (int)starting_size);
-                    if (restart_after_timer)
-                        show_size_options();
-                }
-            }
-            if (gamepad_press[0] & gamepad_right)
-            {
-                if (food_count < FOOD)
-                {
-                    int32_t increment = option_increment(food_count);
-
-                    food_count += increment;
-                    make_food(increment);
-                    
-                    if (restart_after_timer)
-                        show_food_options();
-                }
-            }
-            else if (gamepad_press[0] & gamepad_left)
-            {
-                if (food_count)
-                { 
-                    int32_t decrement = option_decrement(food_count);
-
-                    food_count -= decrement;
-                    if (!restart_after_timer)
-                    {
-                        restart_after_timer = 1;
-                        show_options();
-                    }
-                    else
-                        show_food_options();
-
-                }
-            }
-        }
-        return;
-    }
-    
-    // do bullet dynamics
-    if (vga_frame % speed == 0)
-    for (int step=0; step < bullet_length; ++step)
-    for (int b=0; b<BULLETS; ++b)
-    for (int p=0; p<2; ++p)
-    if (bullet[p][b].alive)
-    {
-        // remove bullet from its current spot:
-        superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
-    
-        // move it forward:
-        switch (bullet[p][b].heading)
-        {
-        case UP:
-            if (bullet[p][b].y)
-                --bullet[p][b].y;
-            else
-                bullet[p][b].y = SCREEN_H-1; // should only happen on torus
-            break;
-        case DOWN:
-            if (bullet[p][b].y < SCREEN_H-1)
-                ++bullet[p][b].y;
-            else
-                bullet[p][b].y = 0; // should only happen on torus
-            break;
-        case LEFT: 
-            if (bullet[p][b].x)
-                --bullet[p][b].x;
-            else
-                bullet[p][b].x = SCREEN_W-1; // should only happen on torus
-            break;
-        case RIGHT: 
-            if (bullet[p][b].x < SCREEN_W-1)
-                ++bullet[p][b].x;
-            else
-                bullet[p][b].x = 0; // should only happen on torus
-            break;
-        }
-
-        // check collisions
-        if (superpixel[bullet[p][b].y][bullet[p][b].x] != bg_color)
-        {
-            if (superpixel[bullet[p][b].y][bullet[p][b].x] & (1<<15))
-            {   // indestructible, ignore!  can't shoot through, either.
-            }
-            else if (superpixel[bullet[p][b].y][bullet[p][b].x] == bullet_color)
-            {
-                // find the other bullet and kill it
-                for (int pb=0; pb<2*BULLETS; ++pb)
-                if (bullet[p][b].y == bullet[pb/BULLETS][pb%BULLETS].y && 
-                    bullet[p][b].x == bullet[pb/BULLETS][pb%BULLETS].x)
-                {
-                    bullet[pb/BULLETS][pb%BULLETS].alive = 0; 
-                    break;
-                }
-                superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
-            }
-            else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
-                     (snake[1-p].color & CODE_MASK))
-            {
-                // kill off enemy snake (1-p) if it's his head, otherwise zip him up
-                if (snake[1-p].alive)
-                {
-                    if (bullet[p][b].y == snake[1-p].head.y && bullet[p][b].x == snake[1-p].head.x)
-                    {
-                        kill_snake(1-p); 
-                        message("killed enemy by a bullet\n");
-                    }
-                    else // was not the head, zip up tail to where bullet hit
-                    {
-                        zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]);
-                        snake[1-p].tail_wait = -1; // tail will jump forward one
-                        message("hurt enemy by a bullet\n");
-                    }
-                    // don't blank the spot, since the tail needs to zip past its encoding
-                }
-                else
-                    // dead snake, put a hole in it
-                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
-            }
-            else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
-                     (snake[p].color & CODE_MASK))
-            {
-                // you just hurt or killed yourself!
-                if (snake[p].alive)
-                {
-                    if (bullet[p][b].y == snake[p].head.y && bullet[p][b].x == snake[p].head.x)
-                    {
-                        kill_snake(p); 
-                        message("killed by your own bullet\n");
-                    }
-                    else // was not the head, zip up tail to where bullet hit
-                    {
-                        zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]);
-                        snake[p].tail_wait = -1; // tail will jump forward one
-                        message("hurt by your own bullet\n");
-                    }
-                    // don't blank the spot, since the tail needs to zip past its encoding
-                }
-                else
-                    // dead snake, put a hole in it
-                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
-            }
-            else
-                // put hole in whatever it is.  if it was food, your bad!  less food overall.
-                superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
-
-            bullet[p][b].alive = 1; // will get killed here next...
-        }
-       
-        --bullet[p][b].alive;
-        // check whether the bullet should continue:
-        if (bullet[p][b].alive)
-            superpixel[bullet[p][b].y][bullet[p][b].x] = bullet_color;
-    }
-    
-    // do snake dynamics
     for (int p=0; p<2-single_player; ++p)
     if (snake[p].alive)
     {
@@ -601,6 +259,248 @@ void game_frame()
                 }
             }
         }
+    }
+}
+
+void do_bullet_dynamics()
+{
+    if (vga_frame % speed == 0)
+    for (int step=0; step < bullet_length; ++step)
+    for (int b=0; b<BULLETS; ++b)
+    for (int p=0; p<2; ++p)
+    if (bullet[p][b].alive)
+    {
+        // remove bullet from its current spot:
+        superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+    
+        // move it forward:
+        switch (bullet[p][b].heading)
+        {
+        case UP:
+            if (bullet[p][b].y)
+                --bullet[p][b].y;
+            else
+                bullet[p][b].y = SCREEN_H-1; // should only happen on torus
+            break;
+        case DOWN:
+            if (bullet[p][b].y < SCREEN_H-1)
+                ++bullet[p][b].y;
+            else
+                bullet[p][b].y = 0; // should only happen on torus
+            break;
+        case LEFT: 
+            if (bullet[p][b].x)
+                --bullet[p][b].x;
+            else
+                bullet[p][b].x = SCREEN_W-1; // should only happen on torus
+            break;
+        case RIGHT: 
+            if (bullet[p][b].x < SCREEN_W-1)
+                ++bullet[p][b].x;
+            else
+                bullet[p][b].x = 0; // should only happen on torus
+            break;
+        }
+
+        // check collisions
+        if (superpixel[bullet[p][b].y][bullet[p][b].x] != bg_color)
+        {
+            if (superpixel[bullet[p][b].y][bullet[p][b].x] & (1<<15))
+            {   // indestructible, ignore!  can't shoot through, either.
+            }
+            else if (superpixel[bullet[p][b].y][bullet[p][b].x] == bullet_color)
+            {
+                // find the other bullet and kill it
+                for (int pb=0; pb<2*BULLETS; ++pb)
+                if (bullet[p][b].y == bullet[pb/BULLETS][pb%BULLETS].y && 
+                    bullet[p][b].x == bullet[pb/BULLETS][pb%BULLETS].x)
+                {
+                    bullet[pb/BULLETS][pb%BULLETS].alive = 0; 
+                    break;
+                }
+                superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+            }
+            else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
+                     (snake[1-p].color & CODE_MASK))
+            {
+                // kill off enemy snake (1-p) if it's his head, otherwise zip him up
+                if (snake[1-p].alive)
+                {
+                    if (bullet[p][b].y == snake[1-p].head.y && bullet[p][b].x == snake[1-p].head.x)
+                    {
+                        kill_snake(1-p); 
+                        message("killed enemy by a bullet\n");
+                    }
+                    else // was not the head, zip up tail to where bullet hit
+                    {
+                        zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]);
+                        snake[1-p].tail_wait = -1; // tail will jump forward one
+                        message("hurt enemy by a bullet\n");
+                    }
+                    // don't blank the spot, since the tail needs to zip past its encoding
+                }
+                else
+                    // dead snake, put a hole in it
+                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+            }
+            else if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == 
+                     (snake[p].color & CODE_MASK))
+            {
+                // you just hurt or killed yourself!
+                if (snake[p].alive)
+                {
+                    if (bullet[p][b].y == snake[p].head.y && bullet[p][b].x == snake[p].head.x)
+                    {
+                        kill_snake(p); 
+                        message("killed by your own bullet\n");
+                    }
+                    else // was not the head, zip up tail to where bullet hit
+                    {
+                        zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]);
+                        snake[p].tail_wait = -1; // tail will jump forward one
+                        message("hurt by your own bullet\n");
+                    }
+                    // don't blank the spot, since the tail needs to zip past its encoding
+                }
+                else
+                    // dead snake, put a hole in it
+                    superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+            }
+            else
+                // put hole in whatever it is.  if it was food, your bad!  less food overall.
+                superpixel[bullet[p][b].y][bullet[p][b].x] = bg_color;
+
+            bullet[p][b].alive = 1; // will get killed here next...
+        }
+       
+        --bullet[p][b].alive;
+        // check whether the bullet should continue:
+        if (bullet[p][b].alive)
+            superpixel[bullet[p][b].y][bullet[p][b].x] = bullet_color;
+    }
+
+}
+
+void game_frame()
+{
+    // update the gamepad and notice any new button presses:
+    static uint16_t old_gamepad[2];
+
+    kbd_emulate_gamepad(); // update
+   
+    // get new presses:
+    gamepad_press[0] = gamepad_buttons[0] & ~old_gamepad[0];
+    gamepad_press[1] = gamepad_buttons[1] & ~old_gamepad[1];
+
+    old_gamepad[0] = gamepad_buttons[0];
+    old_gamepad[1] = gamepad_buttons[1];
+
+    // meta game controls here:
+
+    if (gamepad_press[0] & gamepad_start)
+    {
+        if (timer == 255) // if we were paused...
+        {
+            if (restart_after_timer)
+            {
+                message("unpausing from menu\n");
+                start_play_countdown();
+                return;
+            }
+            message("unpausing\n");
+            timer = 0;
+        }
+        else if (timer == 0) // we weren't paused
+        {
+            if (GAMEPAD_PRESSED(0, R))
+            {
+                restart_after_timer = 1;
+                show_options();
+                show_controls();
+            }
+            timer = 255;
+        }
+    }
+
+    // pause game if it's on a timer...
+    if (timer)
+    {
+        if (gamepad_press[0] & gamepad_select)
+        {   // save screen shot
+            message("taking picture\n");
+            take_screenshot();
+            return;
+        }
+        if (timer < 255) // not paused, probably the game preparing for something...
+        {
+            if (gamepad_press[0] & gamepad_start)
+            {
+                // if we just pressed start, either go to special options (if R is pressed):
+                if (GAMEPAD_PRESSED(0, R))
+                {
+                    restart_after_timer = 1;
+                    timer = 255;
+                    superpixel[56][80] = bg_color;
+                    superpixel[58][80] = bg_color;
+                    superpixel[60][80] = bg_color;
+                    show_controls();
+                    show_options();
+                }
+                else // or speed up whatever is happening:
+                {
+                    timer = 0; // shortcut
+                    message("speeding up whatever is happening (by start)\n");
+                    if (restart_after_timer)
+                        return start_play_countdown();
+                    else
+                        return start_game_play();
+                }
+            }
+            if (vga_frame % 60 == 0)
+            {
+                --timer;
+                if (restart_after_timer)
+                {   
+                    // showing the player their mistake,
+                    // until timer runs out:
+                    if (!timer)
+                        start_play_countdown();
+                }
+                else // no restart, count down!
+                {
+                    switch (timer)
+                    {
+                    case 3:
+                        superpixel[56][80] = RGB(255,0,0);
+                        superpixel[58][80] = RGB(255,255,0);
+                        superpixel[60][80] = RGB(0,255,0);
+                        break;
+                    case 2:
+                        superpixel[56][80] = bg_color;
+                        break;
+                    case 1:
+                        superpixel[58][80] = bg_color;
+                        break;
+                    case 0:
+                        start_game_play();
+                        break;
+                    }
+
+                }
+            }
+        }
+        else // we're paused!  show the options and/or allow them to change
+            update_mode_options();
+        return;
+    }
+    
+    
+    if (dynamics)
+    {
+        // do bullet dynamics
+        do_bullet_dynamics();
+        // do snake dynamics
+        do_snake_dynamics();
     }
 }
 
