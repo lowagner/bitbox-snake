@@ -1,0 +1,136 @@
+arcade.c:  standard deathmatch play
+    new stuff:
+        need global score
+        need new mode:  coop (in addition to solo and duel)
+    press A to get to level play.
+    allow L/R to be left/right turn commands for snake movement.
+
+    game-of-life easter egg:  use a background callback to make food spawn and die.
+
+    change things to be indestructible iff any of its RGB components, divided by two,
+    is nonzero and evenly divisible by 5.
+
+        0       16
+        1       17
+        2       18
+        3       19
+        4       20*
+        5       21*
+        6       22
+        7       23
+        8       24
+        9       25
+        10*     26
+        11*     27
+        12      28
+        13      29
+        14      30*
+        15      31*
+
+    change memset to a standard uint32_t *fill type thing, so we can use bg_color
+    without it being zero.
+
+    split out mode_handle_meta_commands -> start/select sort of thing.
+
+
+
+creator.c:
+    put all snake levels in a FAT directory called snakelvl
+
+    need a command overlay for various commands:
+        save: yes/no/as
+        color: f-f-f -> max options.  highlight any nonzero quantities divisible by 5
+            (recall that you can't save the smallest bit of color yourself,
+             since that is used for encoding purposes.)
+        save as:  8 letters available.  (then auto .ppm)
+
+    on color selection screen:
+        colors that perfectly match the CODE_MASK'ed player colors are not allowed to be selected.
+        food_color can be selected by pressing A.
+        previous color (before the current one) can be selected by pressing B
+        wall_color by selecting Y
+        breakable_wall_color by selecting X.
+
+
+    "play" controls:
+        select -> play this level (switch to level.c mode)
+            if file is unsaved, it saves a tmp file and plays that.
+            otherwise it loads the file last saved as.
+        R/L load next/previous level, barring no unsaved changes.
+            if unsaved changes:  save file to tmp file (snaketmp.ppm)
+            overlay a "save yes/no/as:  A/B/select" command option.
+        X -> choose color (overlay color command)
+            if file is unsaved, it saves a tmp file for reloading after un-overlaying.
+            otherwise it loads the file last saved as.
+        Y - draw color on screen at cursor pos
+        B - remove color from screen at cursor pos
+            saves a tmp file, 
+        A - puts game into special wait mode:
+            the first player is placed there, and then the game
+            awaits a dpad direction to determine initial snake heading.
+            if you press A twice before hitting dpad, 
+                you get second player, and it waits for dpad.
+                pressing A again gets you back to first player.
+            if you press B or something besides dpad in this wait mode, 
+                you back out of placing the snake there,
+                and any previous locations the snakes might have been remain where they were.
+        start -> go to pause mode, always overlay commands.  (don't use R+start here.)
+
+    pause controls:
+        start -> unpause
+        select saves the level.
+            if there is a tmp file, it deletes that.
+        L/R - snake size
+        dpad-up/down - change speed of snake
+        B - changes gun possibilities
+        dpad-right/left - food respawns / does not
+        X modifies win conditions
+        A switch to arcade mode, but check for file unsavedness
+
+
+
+level.c:
+
+        you can move up/down/left/right with arrows, to move around and set the color of something.
+
+
+    game_restart calls something to load the current level filename.
+
+    everything is fixed in a level:  the speed, the starting size, the food count, etc.
+
+    save levels as ppm with a line or two of special encodings...
+
+    level type:
+        solo or coop -- coop has a second player location (obviously)
+
+    win conditions:
+        survival, eat enough food, or both.
+
+        in survival, you need to survive until all your tail comes out.
+
+        in eat enough food, you need to eat some specified amount of food.
+
+        when both are on, you have to meet both goals... obviously...
+
+    size variable:
+        player's starting size!
+
+    player start locations are given on the map via a spot with the player color, with the heading/direction encoded in.
+    on the preview map (and level design map):
+        blinking yellow block in the direction the player heads out.  that spot must be free.
+    
+    most significant bits of each color determine whether the object is indestructible or not.  (NOT the 15th bit.  NEED RECODING)
+
+    indestructible walls:  
+        color - 65535
+        can't be broken by bullets
+
+    destructible walls:
+        some other color, besides bullet color, food color, or player color.
+
+    food:
+        food_color, draw wherever.  
+
+    cannons:
+        shoot special bullets which are taken care of in the background callback
+        can either shoot food or fire.
