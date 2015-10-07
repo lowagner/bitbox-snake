@@ -489,7 +489,7 @@ void game_frame()
                 }
             }
         }
-        else // we're paused!  show the options and/or allow them to change
+        //else // we're paused!  show the options and/or allow them to change
             update_mode_options();
         return;
     }
