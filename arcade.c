@@ -1,7 +1,7 @@
 #include "arcade.h"
-//#include "nonsimple.h"
 #include "field.h"
 #include "options.h"
+#include "io.h"
 
 inline int options_quick_modifiable()
 {
@@ -10,8 +10,9 @@ inline int options_quick_modifiable()
 
 void start_arcade_play()
 {
-    // black everything:
+    // let bullet/snake dynamics be ON:
     dynamics = 1;
+    // black everything:
     clear();
 
     // setup the snakes:
@@ -43,6 +44,108 @@ void show_arcade_options()
     show_food_options();
     show_size_options();
     show_gun_options();
+}
+
+int handle_arcade_meta()
+{
+    if (gamepad_press[0] & gamepad_start)
+    {
+        if (timer == 255) // if we were paused...
+        {
+            if (restart_after_timer)
+            {
+                message("unpausing from menu\n");
+                start_play_countdown();
+                return 1;
+            }
+            message("unpausing\n");
+            timer = 0;
+        }
+        else if (timer == 0) // we weren't paused
+        {
+            if (GAMEPAD_PRESSED(0, R))
+            {
+                restart_after_timer = 1;
+                show_options();
+                show_controls();
+            }
+            timer = 255;
+        }
+    }
+
+    // pause game if it's on a timer...
+    if (timer)
+    {
+        if (gamepad_press[0] & gamepad_select)
+        {   // save screen shot
+            message("taking picture\n");
+            take_screenshot();
+            return 1;
+        }
+        if (timer < 255) // not paused, probably the game preparing for something...
+        {
+            if (gamepad_press[0] & gamepad_start)
+            {
+                // if we just pressed start, either go to special options (if R is pressed):
+                if (GAMEPAD_PRESSED(0, R))
+                {
+                    restart_after_timer = 1;
+                    timer = 255;
+                    superpixel[56][80] = bg_color;
+                    superpixel[58][80] = bg_color;
+                    superpixel[60][80] = bg_color;
+                    show_controls();
+                    show_options();
+                }
+                else // or speed up whatever is happening:
+                {
+                    timer = 0; // shortcut
+                    message("speeding up whatever is happening (by start)\n");
+                    if (restart_after_timer)
+                        start_play_countdown();
+                    else
+                        start_game_play();
+                    return 1;
+                }
+            }
+            if (vga_frame % 60 == 0)
+            {
+                --timer;
+                if (restart_after_timer)
+                {   
+                    // showing the player their mistake,
+                    // until timer runs out:
+                    if (!timer)
+                        start_play_countdown();
+                }
+                else // no restart, count down!
+                {
+                    switch (timer)
+                    {
+                    case 3:
+                        superpixel[56][80] = RGB(255,0,0);
+                        superpixel[58][80] = RGB(255,255,0);
+                        superpixel[60][80] = RGB(0,255,0);
+                        break;
+                    case 2:
+                        superpixel[56][80] = bg_color;
+                        break;
+                    case 1:
+                        superpixel[58][80] = bg_color;
+                        break;
+                    case 0:
+                        start_game_play();
+                        break;
+                    }
+
+                }
+            }
+        }
+        update_arcade_options();
+        return 1;
+    }
+
+    return 0;
 }
 
 void update_arcade_options()
@@ -82,6 +185,7 @@ void update_arcade_options()
             else
             {
                 restart_after_timer = 1; // you must reset the game
+                timer = 255;
                 show_options();
             }
 

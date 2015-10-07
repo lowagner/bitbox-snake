@@ -6,20 +6,19 @@
 #include "abc.h"
 #include "io.h"
 
+
+typedef int (int_fn)(void);
+
 void_fn *start_mode_play;
 void_fn *show_mode_options;
 void_fn *update_mode_options;
+int_fn *handle_mode_meta;
 
 
 void show_options()
 {
-    if (!show_mode_options)
-    {
-        start_mode_play = &start_arcade_play;
-        show_mode_options = &show_arcade_options;
-        update_mode_options = &update_arcade_options;
-    }
-    show_mode_options();
+    if (show_mode_options)
+        show_mode_options();
     
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
@@ -60,6 +59,7 @@ void start_game_play()
         start_mode_play = &start_arcade_play;
         show_mode_options = &show_arcade_options;
         update_mode_options = &update_arcade_options;
+        handle_mode_meta = &handle_arcade_meta;
     }
     start_mode_play();
 }
@@ -90,6 +90,7 @@ void game_init()
     start_mode_play = &start_arcade_play;
     show_mode_options = &show_arcade_options;
     update_mode_options = &update_arcade_options;
+    handle_mode_meta = &handle_arcade_meta;
 
     torus = 1; 
     speed = INIT_SPEED; // smaller values is faster snakes
@@ -396,104 +397,9 @@ void game_frame()
     old_gamepad[1] = gamepad_buttons[1];
 
     // meta game controls here:
-
-    if (gamepad_press[0] & gamepad_start)
-    {
-        if (timer == 255) // if we were paused...
-        {
-            if (restart_after_timer)
-            {
-                message("unpausing from menu\n");
-                start_play_countdown();
-                return;
-            }
-            message("unpausing\n");
-            timer = 0;
-        }
-        else if (timer == 0) // we weren't paused
-        {
-            if (GAMEPAD_PRESSED(0, R))
-            {
-                restart_after_timer = 1;
-                show_options();
-                show_controls();
-            }
-            timer = 255;
-        }
-    }
-
-    // pause game if it's on a timer...
-    if (timer)
-    {
-        if (gamepad_press[0] & gamepad_select)
-        {   // save screen shot
-            message("taking picture\n");
-            take_screenshot();
-            return;
-        }
-        if (timer < 255) // not paused, probably the game preparing for something...
-        {
-            if (gamepad_press[0] & gamepad_start)
-            {
-                // if we just pressed start, either go to special options (if R is pressed):
-                if (GAMEPAD_PRESSED(0, R))
-                {
-                    restart_after_timer = 1;
-                    timer = 255;
-                    superpixel[56][80] = bg_color;
-                    superpixel[58][80] = bg_color;
-                    superpixel[60][80] = bg_color;
-                    show_controls();
-                    show_options();
-                }
-                else // or speed up whatever is happening:
-                {
-                    timer = 0; // shortcut
-                    message("speeding up whatever is happening (by start)\n");
-                    if (restart_after_timer)
-                        return start_play_countdown();
-                    else
-                        return start_game_play();
-                }
-            }
-            if (vga_frame % 60 == 0)
-            {
-                --timer;
-                if (restart_after_timer)
-                {   
-                    // showing the player their mistake,
-                    // until timer runs out:
-                    if (!timer)
-                        start_play_countdown();
-                }
-                else // no restart, count down!
-                {
-                    switch (timer)
-                    {
-                    case 3:
-                        superpixel[56][80] = RGB(255,0,0);
-                        superpixel[58][80] = RGB(255,255,0);
-                        superpixel[60][80] = RGB(0,255,0);
-                        break;
-                    case 2:
-                        superpixel[56][80] = bg_color;
-                        break;
-                    case 1:
-                        superpixel[58][80] = bg_color;
-                        break;
-                    case 0:
-                        start_game_play();
-                        break;
-                    }
-
-                }
-            }
-        }
-        //else // we're paused!  show the options and/or allow them to change
-            update_mode_options();
+    if (handle_mode_meta)
+      if (handle_mode_meta()) // execute fancy pause/modify-game instructions
         return;
-    }
-    
     
     if (dynamics)
     {

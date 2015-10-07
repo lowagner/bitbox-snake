@@ -81,5 +81,6 @@ void remove_walls();
 // some things defined in main that other people need to see
 void start_play_countdown();
 void show_options();
+void start_game_play();
 
 #endif

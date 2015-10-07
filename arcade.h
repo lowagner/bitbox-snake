@@ -9,5 +9,6 @@ methods for the free-range arcade-style duel/single-player play modes.
 void show_arcade_options();
 void update_arcade_options();
 void start_arcade_play();
+int handle_arcade_meta();
 
 #endif
