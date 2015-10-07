@@ -48,8 +48,10 @@ creator.c:
         colors that perfectly match the CODE_MASK'ed player colors are not allowed to be selected.
         food_color can be selected by pressing A.
         previous color (before the current one) can be selected by pressing B
-        wall_color by selecting Y
-        breakable_wall_color by selecting X.
+        wall_color by pressing Y
+        breakable_wall_color by pressing X.
+        color under the cursor by pressing select.
+            (only if not a player spot.)
 
 
     "play" controls:
@@ -88,18 +90,16 @@ creator.c:
         A switch to arcade mode, but check for file unsavedness
 
 
+    player start locations are given on the map via a spot with the player color, 
+    with the heading/direction encoded in.
+        on the preview map:
+            blinking yellow block in the direction the player heads out.  that spot must be free.
+
+    maybe something for later:  cannons:
+        shoot special bullets which are taken care of in the background callback
+        can either shoot food or fire.
 
 level.c:
-
-        you can move up/down/left/right with arrows, to move around and set the color of something.
-
-
-    game_restart calls something to load the current level filename.
-
-    everything is fixed in a level:  the speed, the starting size, the food count, etc.
-
-    save levels as ppm with a line or two of special encodings...
-
     level type:
         solo or coop -- coop has a second player location (obviously)
 
@@ -112,25 +112,3 @@ level.c:
 
         when both are on, you have to meet both goals... obviously...
 
-    size variable:
-        player's starting size!
-
-    player start locations are given on the map via a spot with the player color, with the heading/direction encoded in.
-    on the preview map (and level design map):
-        blinking yellow block in the direction the player heads out.  that spot must be free.
-    
-    most significant bits of each color determine whether the object is indestructible or not.  (NOT the 15th bit.  NEED RECODING)
-
-    indestructible walls:  
-        color - 65535
-        can't be broken by bullets
-
-    destructible walls:
-        some other color, besides bullet color, food color, or player color.
-
-    food:
-        food_color, draw wherever.  
-
-    cannons:
-        shoot special bullets which are taken care of in the background callback
-        can either shoot food or fire.
