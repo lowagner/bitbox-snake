@@ -224,6 +224,8 @@ void update_arcade_options()
                 zip_snake(1, snake[1].head.y, snake[1].head.x,  bg_color);
                 // kill off head, too:
                 superpixel[snake[1].head.y][snake[1].head.x] = bg_color;
+                // kill snake 1:
+                snake[1].alive = 0;
             }
             else
             {

@@ -1,4 +1,8 @@
 arcade.c:  standard deathmatch play
+    bugs:
+        sometimes two of the options stay up even after a screen reset.  rare!
+        wouldn't reboot in solo mode after killing off player zero... perhaps fixed!
+
     new stuff:
         need global score
         need new mode:  coop (in addition to solo and duel)
@@ -30,9 +34,8 @@ arcade.c:  standard deathmatch play
     change memset to a standard uint32_t *fill type thing, so we can use bg_color
     without it being zero.
 
-    split out mode_handle_meta_commands -> start/select sort of thing.
-
-
+    game modes:
+        starvation:  if you don't eat, you get smaller, until you die.
 
 creator.c:
     put all snake levels in a FAT directory called snakelvl
@@ -111,4 +114,5 @@ level.c:
         in eat enough food, you need to eat some specified amount of food.
 
         when both are on, you have to meet both goals... obviously...
+
 
