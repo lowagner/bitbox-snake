@@ -83,4 +83,10 @@ void start_play_countdown();
 void show_options();
 void start_game_play();
 
+inline int options_already_visible()
+{
+    return ((snake[0].alive || snake[1].alive) && (restart_after_timer || timer < 255));
+}
+
+
 #endif

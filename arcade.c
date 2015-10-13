@@ -3,11 +3,6 @@
 #include "options.h"
 #include "io.h"
 
-inline int options_quick_modifiable()
-{
-    return ((snake[0].alive || snake[1].alive) && (restart_after_timer || timer < 255));
-}
-
 void start_arcade_play()
 {
     // let bullet/snake dynamics be ON:
@@ -155,7 +150,7 @@ void update_arcade_options()
         if (speed < 9)
             ++speed;
         message("speed = %d\n", (int)speed);
-        if (options_quick_modifiable())
+        if (options_already_visible())
             show_speed_options();
     }
     else if (gamepad_press[0] & gamepad_up)
@@ -163,7 +158,7 @@ void update_arcade_options()
         if (speed > 1)
             --speed;
         message("speed = %d\n", (int)speed);
-        if (options_quick_modifiable())
+        if (options_already_visible())
             show_speed_options();
     }
     if (gamepad_press[0] & gamepad_Y)
@@ -173,14 +168,14 @@ void update_arcade_options()
         if (torus)
         {
             // can safely make it into a torus, without resetting game
-            if (options_quick_modifiable())
+            if (options_already_visible())
                 show_torus_options();
             remove_walls();
         }
         else
         {
             // but cannot safely add walls without possibly breaking the game
-            if (options_quick_modifiable())
+            if (options_already_visible())
                 show_torus_options();
             else
             {
@@ -207,14 +202,14 @@ void update_arcade_options()
                 }
                 
         }
-        if (options_quick_modifiable())
+        if (options_already_visible())
             show_gun_options();
     }
     if (gamepad_press[0] & gamepad_X)
     {
         single_player = 1 - single_player;
         message("single_player = %d\n", (int)single_player);
-        if (options_quick_modifiable())
+        if (options_already_visible())
             show_duel_options();
         else
         { // create or destroy second player now
@@ -250,7 +245,7 @@ void update_arcade_options()
             for (int p=0; p<2-single_player; ++p)
                 snake[p].tail_wait += increment;
             message("size = %d\n", (int)starting_size);
-            if (options_quick_modifiable())
+            if (options_already_visible())
                 show_size_options();
         }
     }
@@ -264,7 +259,7 @@ void update_arcade_options()
             for (int p=0; p<2-single_player; ++p)
                 snake[p].tail_wait -= decrement;
             message("size = %d\n", (int)starting_size);
-            if (options_quick_modifiable())
+            if (options_already_visible())
                 show_size_options();
         }
     }
@@ -277,7 +272,7 @@ void update_arcade_options()
             food_count += increment;
             make_food(increment);
             
-            if (options_quick_modifiable())
+            if (options_already_visible())
                 show_food_options();
         }
     }
@@ -288,7 +283,7 @@ void update_arcade_options()
             int32_t decrement = option_decrement(food_count);
 
             food_count -= decrement;
-            if (options_quick_modifiable())
+            if (options_already_visible())
                 show_food_options();
             else
             {
