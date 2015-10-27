@@ -162,6 +162,13 @@ void do_snake_dynamics()
                 }
                 else
                 {
+                    if (p == 1 && snake[1].head.x == snake[0].head.x && snake[1].head.y == snake[0].head.y )
+                    {   // second player, check if player 1 ran into player 0's head
+                        // they should both die if that's the case.
+                        kill_snake(0);
+                        message("snake battle!  both die.\n");
+                        superpixel[snake[1].head.y][snake[1].head.x] = (player_color[0] + player_color[1])/2;
+                    }
                     kill_snake(p);
                     continue;
                 }
