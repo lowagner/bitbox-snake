@@ -22,7 +22,7 @@
 #define CODE_MASK 31710 // color equivalence should be & this mask.
 
 extern const uint16_t player_color[2];
-extern const uint16_t dead_player_color[2] ;
+extern const uint16_t dead_player_color[2];
 extern const uint16_t bullet_color;
 extern const uint16_t food_color;
 

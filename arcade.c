@@ -216,9 +216,9 @@ void update_arcade_options()
             if (single_player)
             {   // zip up tail til it reaches the head
                 // now can remove the head (and tail):
-                zip_snake(1, snake[1].head.y, snake[1].head.x,  bg_color);
+                zip_snake(1, snake[1].head.y, snake[1].head.x,  dead_player_color[1]);
                 // kill off head, too:
-                superpixel[snake[1].head.y][snake[1].head.x] = bg_color;
+                superpixel[snake[1].head.y][snake[1].head.x] = dead_player_color[1];
                 // kill snake 1:
                 snake[1].alive = 0;
             }
