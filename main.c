@@ -313,7 +313,7 @@ void do_bullet_dynamics()
         // check collisions
         if (superpixel[bullet[p][b].y][bullet[p][b].x] != bg_color)
         {
-            if (superpixel[bullet[p][b].y][bullet[p][b].x] & (1<<15))
+            if ((superpixel[bullet[p][b].y][bullet[p][b].x] & CODE_MASK) == CODE_MASK)
             {   // indestructible, ignore!  can't shoot through, either.
             }
             else if (superpixel[bullet[p][b].y][bullet[p][b].x] == bullet_color)

@@ -4,38 +4,20 @@ arcade.c:  standard deathmatch play
         wouldn't reboot in solo mode after killing off player zero... perhaps fixed!
 
     new stuff:
-        need global score
-        need new mode:  coop (in addition to solo and duel)
-    press A to get to level play.
-    allow L/R to be left/right turn commands for snake movement.
+        * need global score
+        * need new mode:  coop (in addition to solo and duel)
+        * press A to get to level play.
+        * allow L/R to be left/right turn commands for snake movement.
 
     game-of-life easter egg:  use a background callback to make food spawn and die.
 
-    change things to be indestructible iff any of its RGB components, divided by two,
-    is nonzero and evenly divisible by 5.
-
-        0       16
-        1       17
-        2       18
-        3       19
-        4       20*
-        5       21*
-        6       22
-        7       23
-        8       24
-        9       25
-        10*     26
-        11*     27
-        12      28
-        13      29
-        14      30*
-        15      31*
 
     change memset to a standard uint32_t *fill type thing, so we can use bg_color
     without it being zero.
 
-    game modes:
+    game mode tweaks:
         starvation:  if you don't eat, you get smaller, until you die.
+        ammo-is-length:  you can fire only based on your length, and one bullet requires one unit length.
 
 creator.c:
     put all snake levels in a FAT directory called snakelvl
