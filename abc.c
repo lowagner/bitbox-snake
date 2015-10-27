@@ -181,6 +181,97 @@ void draw_k(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
     superpixel[y][x+1] = bg_color;
     superpixel[y][x+2] = c1;
 }
+
+void draw_m(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+{
+    superpixel[y][x] = c1;
+    superpixel[y][x+1] = c2;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = c2;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = c1;
+}
+
+void draw_c(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+{
+    superpixel[y][x] = c2;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = bg_color;
+
+    superpixel[++y][x] = c2;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = c1;
+}
+
+void draw_q(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+{
+    superpixel[y][x] = c1;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = c2;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = c2;
+}
+
+void draw_v(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+{
+    superpixel[y][x] = c1;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = c2;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = bg_color;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = bg_color;
+}
+
+void draw_j(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+{
+    superpixel[y][x] = bg_color;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c2;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = c1;
+}
+
+void draw_h(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
+{
+    superpixel[y][x] = c1;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = c1;
+    superpixel[y][x+2] = c1;
+
+    superpixel[++y][x] = c1;
+    superpixel[y][x+1] = bg_color;
+    superpixel[y][x+2] = c1;
+}
+
 void draw_w(uint8_t y, uint8_t x, uint16_t c1, uint16_t c2)
 {
     superpixel[y][x] = c1;
