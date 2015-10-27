@@ -2,6 +2,7 @@
 #include "field.h"
 #include "options.h"
 #include "io.h"
+#include "abc.h"
 
 void start_arcade_play()
 {
@@ -33,12 +34,23 @@ void start_arcade_play()
 
 void show_arcade_options()
 {
+    uint16_t c1 = RGB(255,255,0);
+    uint16_t c2 = RGB(0,255,255);
+    uint8_t y=10, x=SCREEN_W/2 - 11;
+
+    draw_a(y,x,c1,c2);x+=4;
+    draw_r(y,x,c2,c1);x+=4;
+    draw_c(y,x,c1,c2);x+=4;
+    draw_a(y,x,c2,c1);x+=4;
+    draw_d(y,x,c1,c2);x+=4;
+    draw_e(y,x,c2,c1);
+
+    show_gun_options();
     show_duel_options();
     show_torus_options();
     show_speed_options();
     show_food_options();
     show_size_options();
-    show_gun_options();
 }
 
 int handle_arcade_meta()

@@ -6,4 +6,6 @@
 void io_init();
 void take_screenshot();
 
+extern uint8_t mount_ok;
+
 #endif

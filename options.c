@@ -6,7 +6,7 @@ void show_duel_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=20;
+    uint8_t y=22;
     uint8_t x = SCREEN_W/2 - 9 +2;
     if (!single_player)
     {
@@ -28,7 +28,7 @@ void show_torus_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=24, x=SCREEN_W/2 - 9;
+    uint8_t y=26, x=SCREEN_W/2 - 9;
     if (torus)
     {
         draw_t(y,x,c1,c2);x+=4;
@@ -52,7 +52,7 @@ void show_speed_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=28, x0=SCREEN_W/2 - 9;
+    uint8_t y=34, x0=SCREEN_W/2 - 9;
     uint8_t x = x0;
     // SPEED speed!
     x=x0-3;
@@ -87,7 +87,7 @@ void show_food_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=32, x=SCREEN_W/2 - 9-5;
+    uint8_t y=38, x=SCREEN_W/2 - 9-5;
     // FOOD
     draw_f(y,x,c1,c2);x+=4;
     draw_o(y,x,c2,c1);x+=4;
@@ -101,7 +101,7 @@ void show_size_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=36, x=SCREEN_W/2 - 9-5;
+    uint8_t y=42, x=SCREEN_W/2 - 9-5;
     // SIZE
     draw_s(y,x,c1,c2);x+=4;
     draw_i(y,x,c2,c1);x+=4;
@@ -117,7 +117,7 @@ void show_gun_options()
 {
     uint16_t c1 = RGB(255,255,0);
     uint16_t c2 = RGB(0,255,255);
-    uint8_t y=40, x=SCREEN_W/2 - 9-1;
+    uint8_t y=18, x=SCREEN_W/2 - 9-1;
     // bullets
     draw_g(y,x,c1,c2);x+=4;
     draw_u(y,x,c2,c1);x+=4;
@@ -134,12 +134,15 @@ void show_controls()
 {
     uint16_t c2 = RGB(255,255,0);
     uint16_t c1 = RGB(0,255,255);
-    uint8_t y=20, x=SCREEN_W/2 - 26;
-
+    uint8_t y=10, x=SCREEN_W/2 - 26;
+    //draw_a(y,x,c1,c2);
+    y += 8;
+    draw_b(y,x,c1,c2);
+    y += 4;
     draw_x(y,x,c1,c2);
     y += 4;
     draw_y(y,x,c1,c2);
-    y += 4;
+    y += 8;
     x -= 4;
     draw_up(y,x,c1,c2); x += 4;
     draw_slash(y,x,c1,c2); x += 4;
@@ -154,8 +157,5 @@ void show_controls()
     draw_l(y,x,c1,c2); x += 4;
     draw_slash(y,x,c1,c2); x += 4;
     draw_r(y,x,c1,c2);
-    x -= 4;
-    y += 4;
-    draw_b(y,x,c1,c2); x += 4;
 }
 
