@@ -1,0 +1,10 @@
+build
+*.bin
+*.elf
+*.map
+*_emu
+
+*.TXT
+*.PPM
+
+snake
