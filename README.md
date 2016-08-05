@@ -38,3 +38,9 @@ the option/intro screen above, and other in-game screenshots below:
 ![in game action](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake001.png)
 
 ![in game action](https://raw.githubusercontent.com/lowagner/bitbox-snake/master/snake885.png)
+
+## Super secret chiptune editor
+
+Press L+start to get to the chiptune editor.  See
+[the 16 wiki](https://github.com/makapuf/bitbox/wiki/Palette-16-Tile-Editor)
+for commands and how to create a song.
