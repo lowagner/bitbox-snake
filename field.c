@@ -29,13 +29,13 @@ void make_food(int how_much)
     {
         for (int i=0; i<how_much; ++i)
         {
-            uint8_t y = 1+rand()%(SCREEN_H-2);
-            uint8_t x = 1+rand()%(SCREEN_W-2);
+            uint8_t y = 1+rand()%((SCREEN_H/2)-2);
+            uint8_t x = 1+rand()%((SCREEN_W/2)-2);
             int k=0;
             while (superpixel[y][x] != bg_color && k < 50)
             {
-                y = 1+rand()%(SCREEN_H-2);
-                x = 1+rand()%(SCREEN_W-2);
+                y = 1+rand()%((SCREEN_H/2)-2);
+                x = 1+rand()%((SCREEN_W/2)-2);
                 ++k;
             }
             superpixel[y][x] = food_color;
@@ -45,13 +45,13 @@ void make_food(int how_much)
     {
         for (int i=0; i<how_much; ++i)
         {
-            uint8_t y = rand()%SCREEN_H;
-            uint8_t x = rand()%SCREEN_W;
+            uint8_t y = rand()%(SCREEN_H/2);
+            uint8_t x = rand()%(SCREEN_W/2);
             int k=0;
             while (superpixel[y][x] != bg_color && k < 50)
             {
-                y = rand()%SCREEN_H;
-                x = rand()%SCREEN_W;
+                y = rand()%(SCREEN_H/2);
+                x = rand()%(SCREEN_W/2);
                 ++k;
             }
             superpixel[y][x] = food_color;
@@ -94,7 +94,7 @@ void kill_snake(int p)
     }
 }
 
-void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
+int zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
 {
     // zip up snake p until the tail reaches point y,x.
     // leave a trail of "color" in the wake.
@@ -111,10 +111,10 @@ void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
             if (snake[p].tail.y)
                 --snake[p].tail.y;
             else
-                snake[p].tail.y = SCREEN_H-1; 
+                snake[p].tail.y = (SCREEN_H/2)-1; 
             break;
         case DOWN:
-            if (snake[p].tail.y < SCREEN_H-1)
+            if (snake[p].tail.y < (SCREEN_H/2)-1)
                 ++snake[p].tail.y;
             else
                 snake[p].tail.y = 0; 
@@ -123,10 +123,10 @@ void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
             if (snake[p].tail.x)
                 --snake[p].tail.x;
             else
-                snake[p].tail.x = SCREEN_W-1; 
+                snake[p].tail.x = (SCREEN_W/2)-1; 
             break;
         case RIGHT: 
-            if (snake[p].tail.x < SCREEN_W-1)
+            if (snake[p].tail.x < (SCREEN_W/2)-1)
                 ++snake[p].tail.x;
             else
                 snake[p].tail.x = 0; 
@@ -135,26 +135,27 @@ void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color)
 
         if (++i > 19200)
             // something got funny...
-            return start_play_countdown();
+            return 1;
     }
     // remove any wait from the tail
     snake[p].tail_wait = 0;
+    return 0;
 }
 
 void make_walls()
 {
     // setup the walls on the torus
-    memset(superpixel[0], 255, 2*SCREEN_W);
-    memset(superpixel[SCREEN_H-1], 255, 2*SCREEN_W);
-    for (int j=0; j<SCREEN_H; ++j)
-        superpixel[j][0] = superpixel[j][SCREEN_W-1] = 65535;
+    memset(superpixel[0], 255, 2*(SCREEN_W/2));
+    memset(superpixel[SCREEN_H/2-1], 255, 2*(SCREEN_W/2));
+    for (int j=0; j<SCREEN_H/2; ++j)
+        superpixel[j][0] = superpixel[j][SCREEN_W/2-1] = 65535;
 }
 
 void remove_walls()
 {
-    memset(superpixel[0], 0, 2*SCREEN_W);
-    memset(superpixel[SCREEN_H-1], 0, 2*SCREEN_W);
-    for (int j=0; j<SCREEN_H; ++j)
-        superpixel[j][0] = superpixel[j][SCREEN_W-1] = 0;
+    memset(superpixel[0], 0, 2*SCREEN_W/2);
+    memset(superpixel[SCREEN_H/2-1], 0, 2*SCREEN_W/2);
+    for (int j=0; j<SCREEN_H/2; ++j)
+        superpixel[j][0] = superpixel[j][SCREEN_W/2-1] = 0;
 }
 

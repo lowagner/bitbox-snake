@@ -1,96 +1,97 @@
 //#include <math.h>
-#include "nonsimple.h"
+#include "common.h"
+#include "chiptune.h"
 #include "field.h"
 #include "arcade.h"
 #include "options.h"
 #include "abc.h"
+#include "font.h"
+#include "name.h"
 #include "io.h"
+#include "song.h"
+#include "track.h"
+#include "instrument.h"
 
+#include <string.h> // memset
+
+uint16_t superpixel[SCREEN_H/2][SCREEN_W/2] CCM_MEMORY;
+uint16_t bg_color CCM_MEMORY;
+
+const uint16_t palette[16] = {
+    RGB(0, 0, 0),
+    RGB(157, 157, 157),
+    65535,
+    RGB(224, 111, 139),
+    RGB(190, 38, 51),
+    RGB(235, 137, 49),
+    RGB(164, 100, 34),
+    RGB(73, 60, 43),
+    RGB(247, 226, 107),
+    RGB(163, 206, 39),
+    RGB(68, 137, 26),
+    RGB(47, 72, 78),
+    RGB(178, 220, 239),
+    RGB(49, 162, 242),
+    RGB(0, 87, 132),
+    RGB(28, 20, 40),
+};
 
 typedef int (int_fn)(void);
 
-void_fn *start_mode_play;
-void_fn *show_mode_options;
-void_fn *update_mode_options;
-int_fn *handle_mode_meta;
+VisualMode visual_mode CCM_MEMORY; 
+VisualMode previous_visual_mode CCM_MEMORY;
+VisualMode old_visual_mode CCM_MEMORY;
+uint16_t old_gamepad[2] CCM_MEMORY;
+uint16_t gamepad_press[2] CCM_MEMORY;
+uint8_t gamepad_press_wait[2] CCM_MEMORY;
+uint8_t game_message[32] CCM_MEMORY;
 
+const uint8_t hex[64] = { 
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', // standard hex
+    'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', // up to 32
+    'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', // up to 48
+    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 138, 255  // up to 64
+};
 
-void show_options()
-{
-    if (show_mode_options)
-        show_mode_options();
-    
-    uint16_t c1 = RGB(255,255,0);
-    uint16_t c2 = RGB(0,255,255);
-    
-    uint8_t y = SCREEN_H*3/4;
-    uint8_t x0=SCREEN_W/2 - 9;
-    uint8_t x=x0-6;
-    // LOWAGNER
-    draw_l(y,x,c1,c2);x+=4;
-    draw_o(y,x,c2,c1);x+=4;
-    draw_w(y,x,c1,c2);x+=4;
-    draw_a(y,x,c2,c1);x+=4;
-    draw_g(y,x,c1,c2);x+=4;
-    draw_n(y,x,c2,c1);x+=4;
-    draw_e(y,x,c1,c2);x+=4;
-    draw_r(y,x,c2,c1);
-
-    y += 4;
-    x = x0-2;
-    // 2015
-    x+=4;
-    draw_z(y,x,c2,c1);x+=4;
-    draw_o(y,x,c1,c2);x+=4;
-    draw_1(y,x,c2,c1);x+=4;
-    draw_s(y,x,c1,c2);
-}
-
-void start_game_play()
-{
-    // get rid of bullets:
-    for (int p=0; p<2; ++p)
-    for (int b=0; b<BULLETS; ++b)
-            bullet[p][b].alive = 0;
-
-    // reset screen and what not.
-    if (!start_mode_play)
-    {
-        start_mode_play = &start_arcade_play;
-        show_mode_options = &show_arcade_options;
-        update_mode_options = &update_arcade_options;
-        handle_mode_meta = &handle_arcade_meta;
-    }
-    start_mode_play();
-}
-
-void start_play_countdown()
-{
-    bg_color = 0; // this MUST BE ZERO.  DO NOT MODIFY.
-    message("restarting game\n");
-    srand(vga_frame); // reseed the random # generator
-
-    graph_line_callback = NULL;
-
-    // give a preview of what the screen will look like:
-    start_game_play();
-
-    timer = 4; // after 4 seconds...,
-    // do not restart after timer, hit play:
-    restart_after_timer = 0;
-
-    // show the options during the countdown:
-    show_options();
-}
 
 void game_init()
 { 
+    font_init();
+    instrument_init();
+    anthem_init();
+    verse_init();
+    chip_init();
     io_init();
 
-    start_mode_play = &start_arcade_play;
-    show_mode_options = &show_arcade_options;
-    update_mode_options = &update_arcade_options;
-    handle_mode_meta = &handle_arcade_meta;
+    if (io_get_recent_filename())
+    {
+        message("resetting everything\n");
+        // had troubles loading a filename
+        base_filename[0] = 'T';
+        base_filename[1] = 'M';
+        base_filename[2] = 'P';
+        base_filename[3] = 0;
+
+        // need to reset everything
+        anthem_reset();
+        verse_reset();
+        instrument_reset();
+    }
+    else // there was a filename to look into
+    {
+        if (io_load_anthem())
+        {
+            anthem_reset();
+        }
+        if (io_load_verse(16))
+        {
+            verse_reset();
+        }
+        if (io_load_instrument(16))
+        {
+            instrument_reset();
+        }
+    }
 
     torus = 1; 
     speed = INIT_SPEED; // smaller values is faster snakes
@@ -98,11 +99,7 @@ void game_init()
     food_count = INIT_FOOD;
     starting_size = INIT_SIZE;
 
-    start_play_countdown();
-
-    timer = 255; // go to pause
-    restart_after_timer = 1; // go to menu on pause
-    show_controls();
+    game_switch(GameOn);
 }
 
 void do_snake_dynamics()
@@ -130,10 +127,10 @@ void do_snake_dynamics()
                 if (snake[p].head.y)
                     --snake[p].head.y;
                 else
-                    snake[p].head.y = SCREEN_H-1; // should only happen on torus
+                    snake[p].head.y = SCREEN_H/2-1; // should only happen on torus
                 break;
             case DOWN:
-                if (snake[p].head.y < SCREEN_H-1)
+                if (snake[p].head.y < SCREEN_H/2-1)
                     ++snake[p].head.y;
                 else
                     snake[p].head.y = 0; // should only happen on torus
@@ -142,10 +139,10 @@ void do_snake_dynamics()
                 if (snake[p].head.x)
                     --snake[p].head.x;
                 else
-                    snake[p].head.x = SCREEN_W-1; // should only happen on torus
+                    snake[p].head.x = SCREEN_W/2-1; // should only happen on torus
                 break;
             case RIGHT: 
-                if (snake[p].head.x < SCREEN_W-1)
+                if (snake[p].head.x < SCREEN_W/2-1)
                     ++snake[p].head.x;
                 else
                     snake[p].head.x = 0; // should only happen on torus
@@ -195,10 +192,10 @@ void do_snake_dynamics()
                         if (snake[p].tail.y)
                             --snake[p].tail.y;
                         else
-                            snake[p].tail.y = SCREEN_H-1; // should only happen on torus
+                            snake[p].tail.y = SCREEN_H/2-1; // should only happen on torus
                         break;
                     case DOWN:
-                        if (snake[p].tail.y < SCREEN_H-1)
+                        if (snake[p].tail.y < SCREEN_H/2-1)
                             ++snake[p].tail.y;
                         else
                             snake[p].tail.y = 0; // should only happen on torus
@@ -207,10 +204,10 @@ void do_snake_dynamics()
                         if (snake[p].tail.x)
                             --snake[p].tail.x;
                         else
-                            snake[p].tail.x = SCREEN_W-1; // should only happen on torus
+                            snake[p].tail.x = SCREEN_W/2-1; // should only happen on torus
                         break;
                     case RIGHT: 
-                        if (snake[p].tail.x < SCREEN_W-1)
+                        if (snake[p].tail.x < SCREEN_W/2-1)
                             ++snake[p].tail.x;
                         else
                             snake[p].tail.x = 0; // should only happen on torus
@@ -244,10 +241,10 @@ void do_snake_dynamics()
                     if (bullet[p][b].y)
                         --bullet[p][b].y;
                     else
-                        bullet[p][b].y = SCREEN_H-1; // should only happen on torus
+                        bullet[p][b].y = SCREEN_H/2-1; // should only happen on torus
                     break;
                 case DOWN:
-                    if (bullet[p][b].y < SCREEN_H-1)
+                    if (bullet[p][b].y < SCREEN_H/2-1)
                         ++bullet[p][b].y;
                     else
                         bullet[p][b].y = 0; // should only happen on torus
@@ -256,10 +253,10 @@ void do_snake_dynamics()
                     if (bullet[p][b].x)
                         --bullet[p][b].x;
                     else
-                        bullet[p][b].x = SCREEN_W-1; // should only happen on torus
+                        bullet[p][b].x = SCREEN_W/2-1; // should only happen on torus
                     break;
                 case RIGHT: 
-                    if (bullet[p][b].x < SCREEN_W-1)
+                    if (bullet[p][b].x < SCREEN_W/2-1)
                         ++bullet[p][b].x;
                     else
                         bullet[p][b].x = 0; // should only happen on torus
@@ -270,7 +267,7 @@ void do_snake_dynamics()
     }
 }
 
-void do_bullet_dynamics()
+int do_bullet_dynamics()
 {
     if (vga_frame % speed == 0)
     for (int step=0; step < bullet_length; ++step)
@@ -288,10 +285,10 @@ void do_bullet_dynamics()
             if (bullet[p][b].y)
                 --bullet[p][b].y;
             else
-                bullet[p][b].y = SCREEN_H-1; // should only happen on torus
+                bullet[p][b].y = SCREEN_H/2-1; // should only happen on torus
             break;
         case DOWN:
-            if (bullet[p][b].y < SCREEN_H-1)
+            if (bullet[p][b].y < SCREEN_H/2-1)
                 ++bullet[p][b].y;
             else
                 bullet[p][b].y = 0; // should only happen on torus
@@ -300,10 +297,10 @@ void do_bullet_dynamics()
             if (bullet[p][b].x)
                 --bullet[p][b].x;
             else
-                bullet[p][b].x = SCREEN_W-1; // should only happen on torus
+                bullet[p][b].x = SCREEN_W/2-1; // should only happen on torus
             break;
         case RIGHT: 
-            if (bullet[p][b].x < SCREEN_W-1)
+            if (bullet[p][b].x < SCREEN_W/2-1)
                 ++bullet[p][b].x;
             else
                 bullet[p][b].x = 0; // should only happen on torus
@@ -341,7 +338,8 @@ void do_bullet_dynamics()
                     }
                     else // was not the head, zip up tail to where bullet hit
                     {
-                        zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]);
+                        if (zip_snake(1-p, bullet[p][b].y, bullet[p][b].x, dead_player_color[1-p]))
+                            return 1;
                         snake[1-p].tail_wait = -1; // tail will jump forward one
                         message("hurt enemy by a bullet\n");
                     }
@@ -364,7 +362,8 @@ void do_bullet_dynamics()
                     }
                     else // was not the head, zip up tail to where bullet hit
                     {
-                        zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]);
+                        if (zip_snake(p, bullet[p][b].y, bullet[p][b].x, dead_player_color[p]))
+                            return 1;
                         snake[p].tail_wait = -1; // tail will jump forward one
                         message("hurt by your own bullet\n");
                     }
@@ -387,13 +386,12 @@ void do_bullet_dynamics()
             superpixel[bullet[p][b].y][bullet[p][b].x] = bullet_color;
     }
 
+    return 0;
 }
 
 void game_frame()
 {
     // update the gamepad and notice any new button presses:
-    static uint16_t old_gamepad[2];
-
     kbd_emulate_gamepad(); // update
    
     // get new presses:
@@ -404,17 +402,81 @@ void game_frame()
     old_gamepad[1] = gamepad_buttons[1];
 
     // meta game controls here:
-    if (handle_mode_meta)
-      if (handle_mode_meta()) // execute fancy pause/modify-game instructions
-        return;
-    
-    if (dynamics)
+    switch (visual_mode)
     {
-        // do bullet dynamics
-        do_bullet_dynamics();
-        // do snake dynamics
-        do_snake_dynamics();
+        case GameOn:
+            arcade_controls();
+            break;
+        case EditSong:
+            anthem_controls();
+            break;
+        case EditInstrument:
+            instrument_controls();
+            break;
+        case EditTrack:
+            verse_controls();
+            break;
+        case ChooseFilename:
+            name_controls();
+            break;
+        default:
+            game_switch(GameOn);
+            break;
     }
 }
 
+void graph_frame() {}
 
+void graph_line() 
+{
+    if (vga_odd)
+        return;
+    switch (visual_mode)
+    {
+        case GameOn:
+        {
+            uint32_t *dst = (uint32_t*)draw_buffer;
+            int j = vga_line/2;
+            for (int i=0; i<SCREEN_W/2; ++i)
+            {
+                uint16_t current_color = superpixel[j][i];
+                *dst++ = current_color | (current_color<<16);
+            }
+            break;
+        }
+        case ChooseFilename:
+            name_line();
+            break;
+        case EditSong:
+            anthem_line();
+            break;
+        case EditTrack:
+            verse_line();
+            break;
+        case EditInstrument:
+            instrument_line();
+            break;
+        default:
+            break;
+    }
+}
+
+void clear() 
+{
+   memset(superpixel, 0, sizeof(superpixel));
+}
+
+void game_switch(VisualMode new_visual_mode)
+{
+    chip_kill();
+    if (new_visual_mode == GameOn)
+    {
+        chip_play_init(0);
+        start_arcade_countdown();
+
+        timer = 255; // go to pause
+        restart_after_timer = 1; // go to menu on pause
+        show_controls();
+    }
+    visual_mode = new_visual_mode;
+}

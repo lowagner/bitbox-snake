@@ -1,7 +1,7 @@
 #ifndef FIELD_H
 #define FIELD_H
 
-#include "nonsimple.h"
+#include "common.h"
 #include <stdlib.h> // rand
 
 // variables for heading / direction:
@@ -72,7 +72,7 @@ uint8_t decode(uint16_t color);
 
 void init_snake(int p, uint8_t y, uint8_t x, uint8_t heading, int32_t size);
 void kill_snake(int p);
-void zip_snake(int p, uint8_t y, uint8_t x, uint16_t color);
+int zip_snake(int p, uint8_t y, uint8_t x, uint16_t color);
 
 void make_walls();
 void remove_walls();

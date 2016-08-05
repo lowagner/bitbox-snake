@@ -1,7 +1,7 @@
 #ifndef ABC_H
 #define ABC_H
 
-#include "nonsimple.h"
+#include "common.h"
 
 inline void swap_colors(uint16_t *c1, uint16_t *c2)
 {
