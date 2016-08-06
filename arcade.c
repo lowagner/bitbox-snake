@@ -192,8 +192,9 @@ void update_arcade_options()
             }
         }
     }
-    if (gamepad_press[0] & gamepad_R)
+    if (GAMEPAD_PRESSING(0, R))
     {
+        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
         if (starting_size < 13000)
         {
             int32_t increment = option_increment(starting_size);
@@ -206,8 +207,9 @@ void update_arcade_options()
                 show_size_options();
         }
     }
-    else if (gamepad_press[0] & gamepad_L)
+    else if (GAMEPAD_PRESSING(0, L))
     {
+        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
         if (starting_size > 1)
         {
             uint32_t decrement = option_decrement(starting_size);
@@ -220,8 +222,9 @@ void update_arcade_options()
                 show_size_options();
         }
     }
-    if (gamepad_press[0] & gamepad_right)
+    if (GAMEPAD_PRESSING(0, right))
     {
+        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
         if (food_count < FOOD)
         {
             int32_t increment = option_increment(food_count);
@@ -233,8 +236,9 @@ void update_arcade_options()
                 show_food_options();
         }
     }
-    else if (gamepad_press[0] & gamepad_left)
+    else if (GAMEPAD_PRESSING(0,left))
     {
+        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
         if (food_count)
         { 
             int32_t decrement = option_decrement(food_count);

@@ -400,6 +400,9 @@ void game_frame()
 
     old_gamepad[0] = gamepad_buttons[0];
     old_gamepad[1] = gamepad_buttons[1];
+    
+    if (gamepad_press_wait[0])
+        --gamepad_press_wait[0];
 
     // meta game controls here:
     switch (visual_mode)
