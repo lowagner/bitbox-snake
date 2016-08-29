@@ -109,7 +109,122 @@ static const int8_t sine_table[] = {
     -71, -60, -49, -37, -25, -12
 };
 
+uint8_t instrument_max_index(uint8_t i, uint8_t j)
+{
+    if (instrument[i].is_drum)
+    {
+        if (j < 2*MAX_DRUM_LENGTH)
+            return 2*MAX_DRUM_LENGTH;
+        else if (j < 3*MAX_DRUM_LENGTH)
+            return 3*MAX_DRUM_LENGTH;
+    }
+    return MAX_INSTRUMENT_LENGTH;
+}
 
+int instrument_jump_bad(uint8_t inst, uint8_t max_index, uint8_t jump_from_index, uint8_t j)
+{
+    // double check that this is an ok jump
+    for (int k=0; k<20; ++k)
+    {
+        if (j >= max_index) // GOOD
+            return 0;
+        else if (j == jump_from_index) // NOT GOOD
+            return 1;
+        switch (instrument[inst].cmd[j]&15)
+        {
+            case JUMP:
+                j = instrument[inst].cmd[j]>>4;
+                break;
+            case WAIT:
+                return 0;
+            case BREAK:
+                if ((instrument[inst].cmd[j]>>4) == 0)
+                    return 0;
+            default:
+                ++j;
+        }
+    }
+    // do not proceed if no wait was found:
+    return 1;
+}
+
+int track_jump_bad(uint8_t t, uint8_t i, uint8_t jump_from_index, uint8_t j)
+{
+    // double check that this is an ok jump
+    for (int k=0; k<36; ++k)
+    {
+        if (j >= MAX_TRACK_LENGTH) // GOOD
+            return 0;
+        else if (j == jump_from_index) // NOT GOOD
+            return 1;
+        switch (chip_track[t][i][j]&15)
+        {
+            case TRACK_JUMP:
+                j = 2*(chip_track[t][i][j]>>4);
+                break;
+            case TRACK_WAIT:
+            case TRACK_NOTE_WAIT:
+                return 0;
+            case TRACK_BREAK:
+                if ((chip_track[t][i][j]>>4) == 0)
+                    return 0;
+            default:
+                ++j;
+        }
+    }
+    // do not proceed if no wait was found:
+    return 1;
+}
+
+uint8_t randomize(uint8_t arg)
+{
+    switch (arg)
+    {
+        case 0:
+            return rand()%16;
+        case 1:
+            return 1 + 14*(rand()%2);
+        case 2:
+            return 1 + 7*(rand()%3);
+        case 3:
+            switch (rand()%4)
+            {
+                case 0:
+                    return 0;
+                case 1:
+                    return 1;
+                case 2:
+                    return 8;
+                case 3:
+                    return 15;
+            }
+        case 4:
+            return rand()%8;
+        case 5:
+            return 4 + rand()%8;
+        case 6:
+            return 8 + rand()%8;
+        case 7:
+            return (12 + rand()%8)&15;
+        case 8:
+            return rand()%4;
+        case 9:
+            return 4+rand()%4;
+        case 10:
+            return 8+rand()%4;
+        case 11:
+            return 12+rand()%4;
+        case 12:
+            return 4*(rand()%4);
+        case 13:
+            return 1 + 4*(rand()%4);
+        case 14:
+            return 2 + 4*(rand()%4);
+        case 15:
+            return 3 + 4*(rand()%4);
+    }
+    return 0;
+}
 
 static void instrument_run_command(uint8_t i, uint8_t inst, uint8_t cmd) 
 {
@@ -169,101 +284,27 @@ static void instrument_run_command(uint8_t i, uint8_t inst, uint8_t cmd)
             chip_player[i].dutyd = param << 4;
             break;
         case RANDOMIZE:
-            switch (instrument[inst].cmd[param]&15)
+        {
+            uint8_t next_index = chip_player[i].cmd_index;
+            uint8_t max_index = instrument_max_index(inst, next_index-1);
+            if (next_index >= max_index)
+                break;
+            uint8_t random = randomize(param);
+            if ((instrument[inst].cmd[next_index]&15) == JUMP)
             {
-                case BREAK:
-                    break;
-                case SIDE:
-                    instrument[inst].cmd[param] = SIDE | ((rand()%16)<<4);
-                    break;
-                case WAVEFORM:
-                    instrument[inst].cmd[param] = WAVEFORM | ((rand()%(WF_VIOLET+1))<<4);
-                    break;
-                case VOLUME:
-                    instrument[inst].cmd[param] = VOLUME | ((rand()%16)<<4);
-                    break;
-                case NOTE:
-                    instrument[inst].cmd[param] = NOTE | ((rand()%16)<<4);
-                    break;
-                case WAIT:
-                    instrument[inst].cmd[param] = WAIT | ((rand()%16)<<4);
-                    break;
-                case FADE_IN:
-                    instrument[inst].cmd[param] = FADE_IN | ((1 + rand()%15)<<4);
-                    break;
-                case FADE_OUT:
-                    instrument[inst].cmd[param] = FADE_OUT | ((rand()%16)<<4);
-                    break;
-                case INERTIA:
-                    instrument[inst].cmd[param] = INERTIA | ((rand()%16)<<4);
-                    break;
-                case VIBRATO:
-                    instrument[inst].cmd[param] = VIBRATO | ((rand()%16)<<4);
-                    break;
-                case BEND:
-                    instrument[inst].cmd[param] = BEND | ((rand()%16)<<4);
-                    break;
-                case BITCRUSH:
-                    instrument[inst].cmd[param] = BITCRUSH | ((rand()%16)<<4);
-                    break;
-                case DUTY:
-                    instrument[inst].cmd[param] = DUTY | ((rand()%16)<<4);
-                    break;
-                case DUTY_DELTA:
-                    instrument[inst].cmd[param] = DUTY_DELTA | ((rand()%16)<<4);
-                    break;
-                case RANDOMIZE:
-                    instrument[inst].cmd[param] = RANDOMIZE | ((rand()%16)<<4);
-                    break;
-                case JUMP:
-                {
-                    // jump randomly to a wait, 
-                    // or before the wait 
-                    // where there is no
-                    // jumps in between.
-                    
-                    // TODO:  probably can create this once, per instrument,
-                    // and re-use it.  as long as other commands in the instrument
-                    // don't get modified, it would be fine to keep it.
-                    uint8_t work[16] = { -1, -1, -1, -1, -1, -1, -1, -1,
-                        -1, -1, -1, -1, -1, -1, -1, -1
-                    };
-                    int work_size = 0;
-                    int probable_start_point = 0;
-                    for (int j=0; j<16; ++j)
-                    {
-                        switch (instrument[inst].cmd[j]&15)
-                        {
-                        case WAIT:
-                            for (int k=probable_start_point; k<=j; ++k)
-                                work[work_size++] = k;
-                            
-                            probable_start_point = j+1;
-                            break;
-                        case JUMP:
-                            probable_start_point = j+1;
-                        }
-                    }
-                    #ifdef EMULATOR
-                    if (work_size > 16)
-                    {
-                        message("got something to overflow in JUMP randomizer.\n");
-                        break;
-                    }
-                    message("got randomized JUMP:\n [");
-                    for (int j=0; j<work_size; ++j)
-                        message("%d, ", work[j]);
-                    message("]\n");
-                    #endif
-                   
-                    if (work_size)
-                        instrument[inst].cmd[param] = JUMP | (work[rand()%work_size]<<4);
-                    else
-                        message("should have some ability to work a JUMP out!\n");
-                    break;
-                }
+                if (instrument_jump_bad(inst, max_index, next_index, random))
+                    break; // do not continue, do not allow this number as a jump
             }
+            else if ((instrument[inst].cmd[next_index]&15) == WAVEFORM)
+            {
+                random %= 8;
+                if (random == 7)
+                    random = 4 + rand()%3;
+            }
+            instrument[inst].cmd[next_index] = 
+                (instrument[inst].cmd[next_index]&15) | (random<<4);
             break;
+        }
         case JUMP: // j = instrument jump
             chip_player[i].cmd_index = param;
             break;
@@ -526,69 +567,23 @@ static void track_run_command(uint8_t i, uint8_t cmd)
             else // zero is a special case:  16 quarter notes
                 track_length = 64;
             break;
-        case TRACK_RANDOMIZE1: // 
-            param += 16;
-            // DO NOT BREAK
-        case TRACK_RANDOMIZE0:
+        case TRACK_RANDOMIZE:
         {
-            uint8_t *memory = &chip_track[chip_player[i].track_index][i][param];
-            switch ((*memory)&15)
-            {
-                case TRACK_BREAK:
-                    *memory = TRACK_BREAK | ((rand()%(track_length/4))<<4);
-                    break;
-                case TRACK_OCTAVE:
-                    *memory = TRACK_OCTAVE | ((rand()%16)<<4);
-                    break;
-                case TRACK_INSTRUMENT:
-                    *memory = TRACK_INSTRUMENT | ((rand()%4)<<4);
-                    break;
-                case TRACK_VOLUME:
-                    *memory = TRACK_VOLUME | ((rand()%16)<<4);
-                    break;
-                case TRACK_NOTE:
-                    *memory = TRACK_NOTE | ((rand()%16)<<4);
-                    break;
-                case TRACK_WAIT:
-                    *memory = TRACK_WAIT | ((rand()%16)<<4);
-                    break;
-                case TRACK_NOTE_WAIT:
-                    *memory = TRACK_NOTE_WAIT | ((rand()%16)<<4);
-                    break;
-                case TRACK_FADE_IN:
-                    *memory = TRACK_FADE_IN | ((1 + rand()%15)<<4);
-                    break;
-                case TRACK_FADE_OUT:
-                    *memory = TRACK_FADE_OUT | ((rand()%16)<<4);
-                    break;
-                case TRACK_INERTIA:
-                    *memory = TRACK_INERTIA | ((rand()%16)<<4);
-                    break;
-                case TRACK_VIBRATO:
-                    *memory = TRACK_VIBRATO | ((rand()%16)<<4);
-                    break;
-                case TRACK_TRANSPOSE:
-                    *memory = TRACK_TRANSPOSE | ((rand()%16)<<4);
-                    break;
-                case TRACK_SPEED:
-                    *memory = TRACK_SPEED | ((rand()%16)<<4);
-                    break;
-                case TRACK_LENGTH:
-                    *memory = TRACK_LENGTH | ((rand()%16)<<4);
-                    break;
-                case TRACK_RANDOMIZE0:
-                case TRACK_RANDOMIZE1:
-                {
-                    uint8_t pos = rand()%32;
-                    if (pos >= 16)
-                        *memory = TRACK_RANDOMIZE1 | (pos-16)<<4;
-                    else
-                        *memory = TRACK_RANDOMIZE0 | (pos<<4);
-                    break;
-                }
-            }
+            uint8_t next_index = chip_player[i].track_cmd_index;
+            if (next_index >= MAX_TRACK_LENGTH)
+                break;
+            uint8_t random = randomize(param);
+            uint8_t t = chip_player[i].track_index;
+            if ((chip_track[t][i][next_index]&15) == TRACK_JUMP && 
+                track_jump_bad(t, i, next_index, 2*random))
+                break;
+            chip_track[t][i][next_index] = 
+                (chip_track[t][i][next_index]&15) | (random<<4);
             break;
         }
+        case TRACK_JUMP: // 
+            chip_player[i].track_cmd_index = 2*param;
+            break;
     }
 }
 

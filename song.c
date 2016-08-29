@@ -212,7 +212,7 @@ void anthem_line()
                     *(++dst) = color_choice[0];
                 }
             }
-            if (i == verse_player)
+            if (anthem_menu_not_edit == 0 && i == verse_player)
             {
                 const uint16_t color = (anthem_song_offset + 15 == anthem_song_pos) ? 
                     BOX_COLOR :
@@ -366,7 +366,7 @@ void anthem_controls()
                 if (error)
                 {
                     strcpy((char *)game_message, "anthem ");
-                    io_message_from_error((char *)game_message+7, error, 1);
+                    io_message_from_error(game_message+7, error, 1);
                     return;
                 }
                 error = io_save_verse(16);
@@ -374,7 +374,7 @@ void anthem_controls()
                 if (error)
                 {
                     strcpy((char *)game_message, "track ");
-                    io_message_from_error((char *)game_message+6, error, 1);
+                    io_message_from_error(game_message+6, error, 1);
                     return;
                 }
 
@@ -382,11 +382,11 @@ void anthem_controls()
                 if (error)
                 {
                     strcpy((char *)game_message, "instr. ");
-                    io_message_from_error((char *)game_message+7, error, 1);
+                    io_message_from_error(game_message+7, error, 1);
                 }
                 else
                 {
-                    io_message_from_error((char *)game_message, NoError, 1);
+                    io_message_from_error(game_message, NoError, 1);
                 }
             }
             else
@@ -395,7 +395,7 @@ void anthem_controls()
                 if (error)
                 {
                     strcpy((char *)game_message, "anthem ");
-                    io_message_from_error((char *)game_message+7, error, 2);
+                    io_message_from_error(game_message+7, error, 2);
                     return;
                 }
                 error = io_load_verse(16);
@@ -403,7 +403,7 @@ void anthem_controls()
                 if (error)
                 {
                     strcpy((char *)game_message, "track ");
-                    io_message_from_error((char *)game_message+6, error, 2);
+                    io_message_from_error(game_message+6, error, 2);
                     return;
                 }
 
@@ -411,11 +411,11 @@ void anthem_controls()
                 if (error)
                 {
                     strcpy((char *)game_message, "instr. ");
-                    io_message_from_error((char *)game_message+7, error, 2);
+                    io_message_from_error(game_message+7, error, 2);
                 }
                 else
                 {
-                    io_message_from_error((char *)game_message, NoError, 2);
+                    io_message_from_error(game_message, NoError, 2);
                 }
             }
             return;
@@ -450,7 +450,7 @@ void anthem_controls()
         if (GAMEPAD_PRESS(0, X))
         {
             // load just anthem
-            io_message_from_error((char *)game_message, io_load_anthem(), 2);
+            io_message_from_error(game_message, io_load_anthem(), 2);
             return;
         }
 

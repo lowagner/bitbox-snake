@@ -259,6 +259,20 @@ void arcade_controls()
 {
     if (gamepad_press[0] & gamepad_start)
     {
+        if (GAMEPAD_PRESSED(0, R))
+        {
+            gamepad_press_wait[0] = 2*GAMEPAD_PRESS_WAIT;
+            restart_after_timer = 1;
+            show_arcade_options();
+            show_controls();
+            timer = 255;
+            return;
+        }
+        else if (GAMEPAD_PRESSED(0, L))
+        {
+            gamepad_press_wait[0] = 2*GAMEPAD_PRESS_WAIT;
+            return game_switch(EditSong);
+        }
         if (timer == 255) // if we were paused...
         {
             if (restart_after_timer)
@@ -272,16 +286,6 @@ void arcade_controls()
         }
         else if (timer == 0) // we weren't paused
         {
-            if (GAMEPAD_PRESSED(0, R))
-            {
-                restart_after_timer = 1;
-                show_arcade_options();
-                show_controls();
-            }
-            else if (GAMEPAD_PRESSED(0, L))
-            {
-                return game_switch(EditSong);
-            }
             timer = 255;
         }
     }

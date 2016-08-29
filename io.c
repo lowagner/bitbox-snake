@@ -70,39 +70,39 @@ FileError io_set_recent_filename()
 }
 
 
-void io_message_from_error(char *msg, FileError error, int save_not_load)
+void io_message_from_error(uint8_t *msg, FileError error, int save_not_load)
 {
     switch (error)
     {
     case NoError:
         if (save_not_load == 1)
-            strcpy(msg, "saved!");
+            strcpy((char *)msg, "saved!");
         else
-            strcpy(msg, "loaded!");
+            strcpy((char *)msg, "loaded!");
         break;
     case MountError:
-        strcpy(msg, "fs unmounted!");
+        strcpy((char *)msg, "fs unmounted!");
         break;
     case ConstraintError:
-        strcpy(msg, "unconstrained!");
+        strcpy((char *)msg, "unconstrained!");
         break;
     case OpenError:
-        strcpy(msg, "no open!");
+        strcpy((char *)msg, "no open!");
         break;
     case ReadError:
-        strcpy(msg, "no read!");
+        strcpy((char *)msg, "no read!");
         break;
     case WriteError:
-        strcpy(msg, "no write!");
+        strcpy((char *)msg, "no write!");
         break;
     case NoDataError:
-        strcpy(msg, "no data!");
+        strcpy((char *)msg, "no data!");
         break;
     case MissingDataError:
-        strcpy(msg, "miss data!");
+        strcpy((char *)msg, "miss data!");
         break;
     case BotchedIt:
-        strcpy(msg, "fully bungled.");
+        strcpy((char *)msg, "fully bungled.");
         break;
     }
 }

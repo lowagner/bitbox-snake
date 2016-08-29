@@ -22,7 +22,7 @@ FileError io_init();
 void take_screenshot();
 
 FileError io_get_recent_filename();
-void io_message_from_error(char *msg, FileError error, int save_not_load);
+void io_message_from_error(uint8_t *msg, FileError error, int save_not_load);
 FileError io_save_instrument(unsigned int i);
 FileError io_load_instrument(unsigned int i);
 FileError io_save_verse(unsigned int i);
