@@ -391,9 +391,6 @@ int do_bullet_dynamics()
 
 void game_frame()
 {
-    // update the gamepad and notice any new button presses:
-    kbd_emulate_gamepad(); // update
-   
     // get new presses:
     gamepad_press[0] = gamepad_buttons[0] & ~old_gamepad[0];
     gamepad_press[1] = gamepad_buttons[1] & ~old_gamepad[1];
