@@ -194,7 +194,7 @@ void update_arcade_options()
     }
     if (GAMEPAD_PRESSING(0, R))
     {
-        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+        gamepad_press_wait = GAMEPAD_PRESS_WAIT;
         if (starting_size < 13000)
         {
             int32_t increment = option_increment(starting_size);
@@ -209,7 +209,7 @@ void update_arcade_options()
     }
     else if (GAMEPAD_PRESSING(0, L))
     {
-        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+        gamepad_press_wait = GAMEPAD_PRESS_WAIT;
         if (starting_size > 1)
         {
             uint32_t decrement = option_decrement(starting_size);
@@ -224,7 +224,7 @@ void update_arcade_options()
     }
     if (GAMEPAD_PRESSING(0, right))
     {
-        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+        gamepad_press_wait = GAMEPAD_PRESS_WAIT;
         if (food_count < FOOD)
         {
             int32_t increment = option_increment(food_count);
@@ -238,7 +238,7 @@ void update_arcade_options()
     }
     else if (GAMEPAD_PRESSING(0,left))
     {
-        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+        gamepad_press_wait = GAMEPAD_PRESS_WAIT;
         if (food_count)
         { 
             int32_t decrement = option_decrement(food_count);
@@ -261,7 +261,7 @@ void arcade_controls()
     {
         if (GAMEPAD_PRESSED(0, R))
         {
-            gamepad_press_wait[0] = 2*GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = 2*GAMEPAD_PRESS_WAIT;
             restart_after_timer = 1;
             show_arcade_options();
             show_controls();
@@ -270,8 +270,8 @@ void arcade_controls()
         }
         else if (GAMEPAD_PRESSED(0, L))
         {
-            gamepad_press_wait[0] = 2*GAMEPAD_PRESS_WAIT;
-            return game_switch(EditSong);
+            gamepad_press_wait = 2*GAMEPAD_PRESS_WAIT;
+            return game_switch(EditAnthem);
         }
         if (timer == 255) // if we were paused...
         {

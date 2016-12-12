@@ -8,8 +8,8 @@
 #include "font.h"
 #include "name.h"
 #include "io.h"
-#include "song.h"
-#include "track.h"
+#include "anthem.h"
+#include "verse.h"
 #include "instrument.h"
 
 #include <string.h> // memset
@@ -43,15 +43,8 @@ VisualMode previous_visual_mode CCM_MEMORY;
 VisualMode old_visual_mode CCM_MEMORY;
 uint16_t old_gamepad[2] CCM_MEMORY;
 uint16_t gamepad_press[2] CCM_MEMORY;
-uint8_t gamepad_press_wait[2] CCM_MEMORY;
+uint8_t gamepad_press_wait CCM_MEMORY;
 uint8_t game_message[32] CCM_MEMORY;
-
-const uint8_t hex[64] = { 
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', // standard hex
-    'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', // up to 32
-    'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', // up to 48
-    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 138, 255  // up to 64
-};
 
 
 void game_init()
@@ -398,8 +391,8 @@ void game_frame()
     old_gamepad[0] = gamepad_buttons[0];
     old_gamepad[1] = gamepad_buttons[1];
     
-    if (gamepad_press_wait[0])
-        --gamepad_press_wait[0];
+    if (gamepad_press_wait)
+        --gamepad_press_wait;
 
     // meta game controls here:
     switch (visual_mode)
@@ -407,13 +400,13 @@ void game_frame()
         case GameOn:
             arcade_controls();
             break;
-        case EditSong:
+        case EditAnthem:
             anthem_controls();
             break;
         case EditInstrument:
             instrument_controls();
             break;
-        case EditTrack:
+        case EditVerse:
             verse_controls();
             break;
         case ChooseFilename:
@@ -447,10 +440,10 @@ void graph_line()
         case ChooseFilename:
             name_line();
             break;
-        case EditSong:
+        case EditAnthem:
             anthem_line();
             break;
-        case EditTrack:
+        case EditVerse:
             verse_line();
             break;
         case EditInstrument:

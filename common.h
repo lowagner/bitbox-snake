@@ -20,8 +20,8 @@ void clear();
 typedef enum {
     None=0,
     GameOn,
-    EditSong,
-    EditTrack,
+    EditAnthem,
+    EditVerse,
     EditInstrument,
     ChooseFilename
 } VisualMode;
@@ -30,10 +30,10 @@ extern VisualMode visual_mode;
 extern VisualMode previous_visual_mode;
 
 #define GAMEPAD_PRESS(id, key) (gamepad_press[id] & (gamepad_##key))
-#define GAMEPAD_PRESSING(id, key) ((gamepad_press[id] & (gamepad_##key)) || ((gamepad_press_wait[id] == 0) && (gamepad_buttons[id] & (gamepad_##key))))
+#define GAMEPAD_PRESSING(id, key) ((gamepad_press[id] & (gamepad_##key)) || ((gamepad_press_wait == 0) && (gamepad_buttons[id] & (gamepad_##key))))
 extern uint16_t old_gamepad[2];
 extern uint16_t gamepad_press[2];
-extern uint8_t gamepad_press_wait[2];
+extern uint8_t gamepad_press_wait;
 
 #define GAMEPAD_PRESS_WAIT 8
 

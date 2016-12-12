@@ -2,13 +2,21 @@
 #include "common.h"
 #include "common.h"
 #include "chiptune.h"
-#include "song.h"
-#include "track.h"
+#include "anthem.h"
+#include "verse.h"
 #include "font.h"
+#include "name.h"
 #include "io.h"
 
 #include <stdlib.h> // rand
 #include <string.h> // memset
+
+const uint8_t hex[64] = { 
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', // standard hex
+    'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', // up to 32
+    'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', // up to 48
+    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 138, 255  // up to 64
+};
 
 const uint8_t note_name[12][2] = {
     { 'C', ' ' }, 
@@ -255,7 +263,10 @@ void instrument_render_command(int j, int y)
         if (param == 0)
         {
             if (y == 7)
-                show_instrument = 0;
+            {
+                if (j == 0 || (instrument[instrument_i].cmd[j-1]&15) != RANDOMIZE)
+                    show_instrument = 0;
+            }
             cmd = '6';
             param = '4';
         }
@@ -574,16 +585,20 @@ int __check_instrument(uint8_t j, uint8_t j_max)
                     found_wait = 1;
                     ++j;
                     break;
+                case BREAK:
+                    // check for a randomizer behind
+                    if (j > 0 && (instrument[instrument_i].cmd[j-1]&15) == RANDOMIZE)
+                    {}
+                    else if ((instrument[instrument_i].cmd[j]>>4) == 0)
+                        return 0;
+                    // fall through to ++j
                 default:
                     ++j;
             }
         }
-        else
+        else switch (instrument[instrument_i].cmd[j]&15)
         {
-            if ((instrument[instrument_i].cmd[j]&15) != JUMP)
-                ++j;
-            else
-            {
+            case JUMP:
                 j_last_jump = j;
                 j = instrument[instrument_i].cmd[j]>>4;
                 if (j > j_last_jump)
@@ -598,7 +613,16 @@ int __check_instrument(uint8_t j, uint8_t j_max)
                 }
                 else
                     found_wait = 0;
-            }
+                break;
+            case BREAK:
+                // check for a randomizer behind
+                if (j > 0 && (instrument[instrument_i].cmd[j-1]&15) == RANDOMIZE)
+                {}
+                else if ((instrument[instrument_i].cmd[j]>>4) == 0)
+                    return 0;
+                // fall through to ++j
+            default:
+                ++j;
         }
     }
     message("couldn't finish after iterations. congratulations.\nprobably looping back on self, but with waits.");
@@ -881,7 +905,7 @@ void instrument_controls()
         if (moved)
         {
             game_message[0] = 0;
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             if (instrument_cursor) // drums
             {
                 if (instrument[instrument_i].is_drum) 
@@ -938,6 +962,7 @@ void instrument_controls()
 
         if (GAMEPAD_PRESS(0, X))
         {
+            game_message[0] = 0;
             // copy or uncopy
             if (instrument_copying < 16)
                 instrument_copying = 16;
@@ -986,7 +1011,7 @@ void instrument_controls()
             game_message[0] = 0;
             instrument_i = (instrument_i + moved)&15;
             instrument_j = 0;
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT*2;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT*2;
             return;
         }
     }
@@ -1084,7 +1109,7 @@ void instrument_controls()
         }
         if (movement)
         {
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             return;
         }
 
@@ -1181,8 +1206,7 @@ void instrument_controls()
             instrument_note = (instrument_note + 1)%24;
             reset_player(verse_player);
             chip_player[verse_player].octave = instrument[instrument_i].octave;
-            chip_player[verse_player].instrument = instrument_i;
-            chip_note(verse_player, instrument_note, 240); 
+            chip_note(verse_player, instrument_i, instrument_note, 240); 
         }
         
         if (GAMEPAD_PRESS(0, B))
@@ -1193,8 +1217,7 @@ void instrument_controls()
                 instrument_note = 23;
             reset_player(verse_player);
             chip_player[verse_player].octave = instrument[instrument_i].octave;
-            chip_player[verse_player].instrument = instrument_i;
-            chip_note(verse_player, instrument_note, 240); 
+            chip_note(verse_player, instrument_i, instrument_note, 240); 
         }
     }
 
@@ -1210,12 +1233,12 @@ void instrument_controls()
         else if (instrument_menu_not_edit)
         {
             anthem_menu_not_edit = 1;
-            game_switch(EditSong);
+            game_switch(EditAnthem);
         }
         else
         {
             verse_menu_not_edit = 0;
-            game_switch(EditTrack);
+            game_switch(EditVerse);
         }
         return;
     } 

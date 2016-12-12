@@ -3,7 +3,8 @@
 #include "common.h"
 #include "chiptune.h"
 #include "instrument.h"
-#include "track.h"
+#include "verse.h"
+#include "name.h"
 #include "font.h"
 #include "io.h"
 
@@ -306,6 +307,8 @@ void anthem_line()
         case 16:
             if (anthem_menu_not_edit)
                 font_render_line_doubled((uint8_t *)"select:verse menu", 16, internal_line, 65535, BG_COLOR*257);
+            else
+                font_render_line_doubled((uint8_t *)"select:main menu", 16, internal_line, 65535, BG_COLOR*257);
             break;        
         case 18:
             font_render_line_doubled(game_message, 16, internal_line, 65535, BG_COLOR*257);
@@ -348,7 +351,7 @@ void anthem_controls()
                 song_length = 16;
             else if (song_length > MAX_SONG_LENGTH)
                 song_length = MAX_SONG_LENGTH;
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             return;
         }
         
@@ -443,7 +446,7 @@ void anthem_controls()
             game_message[17] = hex[chip_volume/16];
             game_message[18] = hex[chip_volume%16];
             game_message[19] = 0;
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             return;
         }
 
@@ -459,7 +462,7 @@ void anthem_controls()
             // switch to choose name and hope to come back
             game_message[0] = 0;
             game_switch(ChooseFilename);
-            previous_visual_mode = EditSong;
+            previous_visual_mode = EditAnthem;
             return;
         }
     }
@@ -468,11 +471,13 @@ void anthem_controls()
         int paint_if_moved = 0; 
         if (GAMEPAD_PRESSING(0, Y))
         {
+            game_message[0] = 0;
             anthem_song_paint(0);
             paint_if_moved = 1;
         }
         if (GAMEPAD_PRESSING(0, B))
         {
+            game_message[0] = 0;
             anthem_song_paint(1);
             paint_if_moved = 2;
         }
@@ -483,7 +488,10 @@ void anthem_controls()
         if (GAMEPAD_PRESSING(0, R))
             ++switched;
         if (switched)
+        {
             anthem_color[anthem_last_painted] = (anthem_color[anthem_last_painted]+switched)&15;
+            game_message[0] = 0;
+        }
         
         int moved = 0;
         if (GAMEPAD_PRESSING(0, down))
@@ -520,16 +528,17 @@ void anthem_controls()
         }
         if (moved)
         {
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             if (paint_if_moved)
                 anthem_song_paint(paint_if_moved-1);
         }
         else if (switched || paint_if_moved)
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
 
         if (GAMEPAD_PRESS(0, A))
         {
             track_pos = 0;
+            game_message[0] = 0;
             if (chip_play)
                 chip_kill();
             else
@@ -539,7 +548,7 @@ void anthem_controls()
         if (GAMEPAD_PRESS(0, X))
         {
             verse_track = anthem_song_color();
-            game_switch(EditTrack);
+            game_switch(EditVerse);
             return;
         }
     }
@@ -560,7 +569,7 @@ void anthem_controls()
         if (anthem_menu_not_edit)
         {
             verse_menu_not_edit = 1;
-            game_switch(EditTrack);
+            game_switch(EditVerse);
         }
         else
         {

@@ -2,8 +2,9 @@
 #include "common.h"
 #include "common.h"
 #include "chiptune.h"
-#include "song.h"
+#include "anthem.h"
 #include "instrument.h"
+#include "name.h"
 #include "font.h"
 #include "io.h"
 
@@ -21,7 +22,6 @@ uint8_t verse_track_pos CCM_MEMORY;
 uint8_t verse_track_offset CCM_MEMORY;
 uint8_t verse_menu_not_edit CCM_MEMORY;
 uint8_t verse_copying CCM_MEMORY;
-uint8_t verse_last_painted CCM_MEMORY;
 uint8_t verse_show_track CCM_MEMORY;
 uint8_t verse_player CCM_MEMORY;
 uint8_t verse_command_copy CCM_MEMORY;
@@ -148,7 +148,10 @@ void verse_render_command(int j, int y)
         if (param == 0)
         {
             if (y == 7)
-                verse_show_track = 0;
+            {
+                if (j == 0 || (chip_track[verse_track][verse_player][j-1]&15) != TRACK_RANDOMIZE)
+                    verse_show_track = 0;
+            }
             cmd = '0';
             param = '0';
         }
@@ -391,16 +394,20 @@ int _check_verse()
                     found_wait = 1;
                     ++j;
                     break;
+                case TRACK_BREAK:
+                    // check for a randomizer behind
+                    if (j > 0 && (chip_track[verse_track][verse_player][j-1]&15) == TRACK_RANDOMIZE)
+                    {}
+                    else if ((chip_track[verse_track][verse_player][j]>>4) == 0)
+                        return 0;
+                    // fall through to ++j
                 default:
                     ++j;
             }
         }
-        else
+        else switch (chip_track[verse_track][verse_player][j]&15)
         {
-            if ((chip_track[verse_track][verse_player][j]&15) != TRACK_JUMP)
-                ++j;
-            else
-            {
+            case TRACK_JUMP:
                 j_last_jump = j;
                 j = 2*(chip_track[verse_track][verse_player][j]>>4);
                 if (j > j_last_jump)
@@ -415,7 +422,16 @@ int _check_verse()
                 }
                 else
                     found_wait = 0;
-            }
+                break;
+            case TRACK_BREAK:
+                // check for a randomizer behind
+                if (j > 0 && (chip_track[verse_track][verse_player][j-1]&15) == TRACK_RANDOMIZE)
+                {}
+                else if ((chip_track[verse_track][verse_player][j]>>4) == 0)
+                    return 0;
+                // fall through to ++j
+            default:
+                ++j;
         }
     }
     message("couldn't finish after 32 iterations. congratulations.\nprobably looping back on self, but with waits.");
@@ -667,7 +683,7 @@ void verse_controls()
             verse_track_pos = 0;
             verse_track_offset = 0;
             verse_player = (verse_player+switched)&3;
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             return;
         }
         
@@ -681,7 +697,7 @@ void verse_controls()
             verse_track = (verse_track+switched)&15;
             verse_track_pos = 0;
             verse_track_offset = 0;
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             return;
         }
 
@@ -722,7 +738,7 @@ void verse_controls()
                 // switch to choose name and hope to come back
                 game_message[0] = 0;
                 game_switch(ChooseFilename);
-                previous_visual_mode = EditTrack;
+                previous_visual_mode = EditVerse;
             }
             return;
         }
@@ -814,7 +830,7 @@ void verse_controls()
         }
         if (movement)
         {
-            gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+            gamepad_press_wait = GAMEPAD_PRESS_WAIT;
             return;
         }
 
@@ -905,7 +921,7 @@ void verse_controls()
         else
         {
             anthem_menu_not_edit = 0;
-            game_switch(EditSong);
+            game_switch(EditAnthem);
         }
         return;
     } 

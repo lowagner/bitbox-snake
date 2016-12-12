@@ -297,7 +297,7 @@ void name_controls()
         make_wait = 1;
     }
     if (make_wait)
-        gamepad_press_wait[0] = GAMEPAD_PRESS_WAIT;
+        gamepad_press_wait = GAMEPAD_PRESS_WAIT;
 
     if (GAMEPAD_PRESS(0, A))
     {
@@ -340,7 +340,7 @@ void name_controls()
     if (GAMEPAD_PRESS(0, select))
     {
         // switch to next visual mode and ignore previous_visual_mode
-        game_switch(EditSong);
+        game_switch(EditAnthem);
         previous_visual_mode = None;
         return;
     }
@@ -353,7 +353,7 @@ void name_controls()
         }
         else
         {
-            game_switch(EditSong);
+            game_switch(EditAnthem);
         }
     }
 }
