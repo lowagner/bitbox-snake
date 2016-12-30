@@ -1,6 +1,9 @@
 # bitbox-snake
 remake of the classic game, with dueling possible
 
+SUPERCEDED BY https://github.com/lowagner/bitbox-boredgames
+please go there.
+
 
 ## controls
 
